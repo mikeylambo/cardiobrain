@@ -299,9 +299,31 @@ export const useCardioStore = create<Store>((set, get) => ({
   },
 
   resetData: async () => {
-    await Promise.all([clearActiveSession(), saveHistory([])]);
-    set({history:[],active:null,lastResult:null,resumeAvailable:false,progress:ensureProgress({})});
-    saveProgress(ensureProgress({}));
+    const progress = ensureProgress({});
+    const prefs = { ...DEFAULT_PREFS };
+    await Promise.all([
+      clearActiveSession(),
+      saveHistory([]),
+      savePrefs(prefs),
+      saveProgress(progress)
+    ]);
+    try {
+      localStorage.removeItem("cb-onboarding");
+      localStorage.removeItem("cb-a2hs");
+    } catch {}
+    document.documentElement.dataset.reducedMotion = "false";
+    set({
+      history:[],
+      prefs,
+      progress,
+      onboardingDone:false,
+      resumeAvailable:false,
+      setup:{activity:"walk",mode:"mix",duration:10},
+      active:null,
+      lastResult:null,
+      notice:null,
+      screen:"onboarding"
+    });
   },
 
   exportAll: async () => {
