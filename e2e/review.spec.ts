@@ -42,7 +42,18 @@ async function playUntilResults(page) {
 }
 
 test.describe("CardioBrain visual review", () => {
-  test("captures every primary screen", async ({ page }) => {
+  test("captures first-launch onboarding", async ({ page }) => {
+    await page.addInitScript(() => localStorage.removeItem("cb-onboarding"));
+    await page.goto("/");
+    await expect(page.getByText("One screen. One tap.")).toBeVisible();
+    await page.screenshot({ path: "artifacts/onboarding-01.png", fullPage: true });
+    await page.getByRole("button", { name: "Continue" }).click();
+    await page.screenshot({ path: "artifacts/onboarding-02.png", fullPage: true });
+    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("button", { name: "Set up a session" }).click();
+  });
+
+  test("captures every primary screen", async ({ page }) =>
     await boot(page);
     await page.screenshot({ path: "artifacts/home.png", fullPage: true });
 
@@ -51,8 +62,10 @@ test.describe("CardioBrain visual review", () => {
     await page.screenshot({ path: "artifacts/setup.png", fullPage: true });
 
     await page.getByText("Continue to countdown").click();
+    await page.waitForTimeout(850);
+    await page.screenshot({ path: "artifacts/countdown.png", fullPage: true });
     await expect(page.getByText("GO")).toBeVisible({ timeout: 6000 });
-    await page.screenshot({ path: "artifacts/countdown-session.png", fullPage: true });
+    await page.screenshot({ path: "artifacts/session-mix.png", fullPage: true });
 
     await page.getByRole("button", { name: /Pause session/ }).click();
     await expect(page.getByText("PAUSED")).toBeVisible();
@@ -115,6 +128,32 @@ test.describe("CardioBrain visual review", () => {
     await playUntilResults(page);
     await page.getByText("View history").click();
     await expect(page.locator(".session-row")).toHaveCount(1);
+  });
+
+  test("mid-session interruption auto-pauses after three seconds", async ({ page }) => {
+    await boot(page);
+    await startMode(page, "Numbers");
+
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await page.waitForTimeout(3200);
+    await page.evaluate(() => {
+      Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    await expect(page.getByText("PAUSED")).toBeVisible();
+    await page.screenshot({ path: "artifacts/interruption-paused.png", fullPage: true });
+  });
+
+  test("results leads directly to the next session", async ({ page }) => {
+    await boot(page);
+    await startMode(page, "Numbers");
+    await playUntilResults(page);
+    await page.getByText("Go again").click();
+    await expect(page.getByText("GO")).toBeVisible({ timeout: 6000 });
   });
 
   test("history survives reload", async ({ page }) => {
