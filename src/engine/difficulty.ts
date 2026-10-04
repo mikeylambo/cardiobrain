@@ -15,6 +15,8 @@ const BIAS_MULTIPLIER: Record<DifficultyBias, number> = {
 };
 
 export const MAX_LEVEL = 20;
+export const PLACEMENT_TRIALS = 12;
+export const PLACEMENT_CAP = 12;
 
 export function targetResponseMs(mode: ModeId, level: number, activity: Activity, bias: DifficultyBias): number {
   const base: Record<ModeId, number> = {
@@ -60,10 +62,13 @@ export function updateDifficulty(
   ].slice(-8);
   const trialsSeen = state.trialsSeen + 1;
 
-  // Calibration: first 20 trials ease through levels 1–4 so the app feels responsive from session one.
-  if (trialsSeen <= 20) {
-    const calibrationLevel = Math.min(4, 1 + Math.floor((trialsSeen - 1) / 5));
-    return { level: Math.max(state.level, calibrationLevel), trialsSeen, recent, lastChangeAt: state.lastChangeAt };
+  // Placement: the first 12 challenges of a mode you have never played move fast. A quick
+  // correct answer steps up a level, a wrong one steps down, a slow correct one holds. An
+  // experienced player reaches their level in about a minute instead of grinding from 1.
+  if (trialsSeen <= PLACEMENT_TRIALS) {
+    const quick = trial.correct && trial.responseMs <= trial.targetRt * 1.2;
+    const level = quick ? Math.min(PLACEMENT_CAP, state.level + 1) : trial.correct ? state.level : Math.max(1, state.level - 1);
+    return { level, trialsSeen, recent, lastChangeAt: trialsSeen };
   }
 
   if (trialsSeen - state.lastChangeAt < 6 || recent.length < 8) {

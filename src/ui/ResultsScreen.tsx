@@ -1,5 +1,6 @@
 import React from "react";
 import { sfx } from "../audio/synth";
+import { say } from "../audio/speech";
 import { useStore } from "../state/store";
 import { isNative, shareNative } from "../platform/native";
 import { dailyNumber } from "../engine/daily";
@@ -22,6 +23,8 @@ export function ResultsScreen() {
   const requestStart = useStore((s) => s.requestStart);
   const updateResult = useStore((s) => s.updateResult);
   const go = useStore((s) => s.go);
+  const flags = useStore((s) => s.flags);
+  const markMotionNudged = useStore((s) => s.markMotionNudged);
   const target = result ? pct(result.accuracy) : 0;
   const instant = prefs.reducedMotion || (typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches);
   const [shown, setShown] = React.useState(instant ? target : 0);
@@ -44,6 +47,22 @@ export function ResultsScreen() {
       ? `Daily challenge, ${ACTIVITY_LABEL[result.activity].toLowerCase()}`
       : `${ACTIVITY_LABEL[result.activity]}, ${result.guided ? "first round" : MODE_INFO[result.requestedMode].label}`
     : "";
+
+  // The "play it seated" reminder shows once per mode, then stays out of the way.
+  const [nudge] = React.useState(() => Boolean(result && !flags.motionNudged.includes(result.requestedMode)));
+  React.useEffect(() => {
+    if (result && nudge && !cost && result.activity !== "still" && !result.daily && !result.guided) markMotionNudged(result.requestedMode);
+  }, [result, nudge, cost, markMotionNudged]);
+
+  // Eyes-free runs end with the result read aloud.
+  React.useEffect(() => {
+    if (!result || !prefs.speak) return;
+    const delta = d.accuracyPoints === null ? "" : ` ${accuracyDeltaText(d.accuracyPoints)}.`;
+    const t = window.setTimeout(() => say(`${title} ${pct(result.accuracy)} percent, ${(result.avgRt / 1000).toFixed(1)} seconds average.${delta}`), 900);
+    return () => window.clearTimeout(t);
+    // Read once, when Results opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result?.id]);
 
   React.useEffect(() => {
     sfx.complete();
@@ -172,7 +191,7 @@ export function ResultsScreen() {
             </span>
           </div>
         )}
-        {!result.daily && !result.guided && (
+        {!result.daily && !result.guided && (result.activity === "still" || cost || nudge) && (
           <div className="stat">
             <span className="stat-label">Motion cost</span>
             <span className="stat-delta" style={{ gridColumn: "1 / -1" }}>
@@ -186,44 +205,42 @@ export function ResultsScreen() {
         )}
       </div>
 
-      {askEffort && (
-        <div className="checkin" role="group" aria-labelledby="rpe-label">
-          <p id="rpe-label" className="checkin-label">
-            How hard was the workout?
-          </p>
-          <div className="rpe">
-            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-              <button
-                key={n}
-                className="rpe-btn num"
-                aria-pressed={result.rpe === n}
-                aria-label={`${n}${RPE_ANCHORS[n] ? `, ${RPE_ANCHORS[n]}` : ""}`}
-                onClick={() => updateResult(result.id, { rpe: n })}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-          <div className="rpe-anchors" aria-hidden="true">
-            <span>Very easy</span>
-            <span>Hard</span>
-            <span>Max</span>
-          </div>
-        </div>
-      )}
-
-      {askMood && (
-        <div className="checkin" role="group" aria-labelledby="mood-after-label">
-          <p id="mood-after-label" className="checkin-label">
-            How do you feel now?
-          </p>
-          <div className="mood">
-            {MOODS.map((m, i) => (
-              <button key={m} className="rpe-btn" aria-pressed={result.moodAfter === i + 1} onClick={() => updateResult(result.id, { moodAfter: i + 1 })}>
-                {m}
-              </button>
-            ))}
-          </div>
+      {(askEffort || askMood) && (
+        <div className="checkin" role="group" aria-label="Check-in">
+          {askEffort && (
+            <>
+              <p id="rpe-label" className="checkin-label">
+                Effort <span className="checkin-hint">1 very easy, 10 max</span>
+              </p>
+              <div className="rpe">
+                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                  <button
+                    key={n}
+                    className="rpe-btn num"
+                    aria-pressed={result.rpe === n}
+                    aria-label={`${n}${RPE_ANCHORS[n] ? `, ${RPE_ANCHORS[n]}` : ""}`}
+                    onClick={() => updateResult(result.id, { rpe: n })}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          {askMood && (
+            <>
+              <p id="mood-after-label" className="checkin-label" style={{ marginTop: askEffort ? 12 : 0 }}>
+                Mood now
+              </p>
+              <div className="mood">
+                {MOODS.map((m, i) => (
+                  <button key={m} className="rpe-btn" aria-pressed={result.moodAfter === i + 1} onClick={() => updateResult(result.id, { moodAfter: i + 1 })}>
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 

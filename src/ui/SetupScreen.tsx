@@ -1,3 +1,4 @@
+import React from "react";
 import type { DurationChoice, ModeId } from "../engine/types";
 import { MODE_CHOICES, MODE_INFO, PLAYABLE_MODES } from "../modes/registry";
 import { useStore } from "../state/store";
@@ -25,6 +26,7 @@ export function SetupSheet({ onClose }: { onClose: () => void }) {
   const setup = useStore((s) => s.setup);
   const updateSetup = useStore((s) => s.updateSetup);
   const requestStart = useStore((s) => s.requestStart);
+  const [pickingMode, setPickingMode] = React.useState(false);
 
   const toggleMix = (m: ModeId) => {
     const on = setup.mixModes.includes(m);
@@ -47,14 +49,35 @@ export function SetupSheet({ onClose }: { onClose: () => void }) {
       )}
 
       <p className="group-label">Mode</p>
-      <div className="mode-rows" role="radiogroup" aria-label="Mode">
-        {MODE_CHOICES.map((m) => (
-          <button key={m} role="radio" aria-checked={setup.mode === m} className="mode-row" onClick={() => updateSetup({ mode: m })}>
-            <strong>{MODE_INFO[m].label}</strong>
-            <span>{MODE_INFO[m].description}</span>
+      {pickingMode ? (
+        <div className="mode-rows" role="radiogroup" aria-label="Mode">
+          {MODE_CHOICES.map((m) => (
+            <button
+              key={m}
+              role="radio"
+              aria-checked={setup.mode === m}
+              className="mode-row"
+              onClick={() => {
+                updateSetup({ mode: m });
+                setPickingMode(false);
+              }}
+            >
+              <strong>{MODE_INFO[m].label}</strong>
+              <span>{MODE_INFO[m].description}</span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="mode-current">
+          <div className="mode-row" aria-current="true" data-selected="true">
+            <strong>{MODE_INFO[setup.mode].label}</strong>
+            <span>{MODE_INFO[setup.mode].description}</span>
+          </div>
+          <button className="btn-text" onClick={() => setPickingMode(true)}>
+            Change mode
           </button>
-        ))}
-      </div>
+        </div>
+      )}
 
       {setup.mode === "mix" && (
         <>

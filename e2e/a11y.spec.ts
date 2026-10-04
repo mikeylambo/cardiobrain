@@ -6,6 +6,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { play, prime, seedHistory, startFromHome, type Mode } from "./helpers";
 
 const audit = async (page: Page, where: string) => {
+  await page.locator("#splash").waitFor({ state: "detached" });
   await page.waitForTimeout(500);
   const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
   const problems = r.violations.map((v) => `${v.id}: ${v.help} (${v.nodes.length}) ${v.nodes[0]?.target.join(" ")}`);
@@ -30,7 +31,7 @@ test("welcome, home, sheet, history, insights, settings", async ({ page }) => {
     ["Insights", "insights"],
     ["Settings", "settings"],
   ]) {
-    await page.getByRole("button", { name: link! }).click();
+    await page.getByRole("button", { name: link!, exact: true }).click();
     await audit(page, where!);
     await page.getByRole("button", { name: "Back to Home" }).click();
   }

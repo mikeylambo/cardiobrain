@@ -54,6 +54,7 @@ export function HomeScreen() {
   const discardRecovered = useStore((s) => s.discardRecovered);
   const clearError = useStore((s) => s.clearError);
   const go = useStore((s) => s.go);
+  const markFeatureTipShown = useStore((s) => s.markFeatureTipShown);
   const [sheet, setSheet] = React.useState(false);
   const [install, setInstall] = React.useState(() => shouldOfferInstall(flags.installOffered, history.length));
 
@@ -61,6 +62,8 @@ export function HomeScreen() {
   const daily = history.find((h) => h.daily === today);
   const last = history.find((h) => !h.guided && !h.daily) ?? history[0];
   const week = sessionsThisWeek(history);
+  // After a third real session, point once at the features made for training without looking.
+  const showTip = !flags.featureTipShown && !prefs.speak && history.filter((h) => !h.guided && !h.daily).length >= 3 && !recoverable && !error;
   const start = (opts?: { daily?: boolean }) => {
     unlockAudio();
     requestStart(opts);
@@ -93,6 +96,23 @@ export function HomeScreen() {
             </button>
           </div>
         )}
+        {showTip && (
+          <div className="notice" role="status">
+            Training outdoors? Read aloud and Eyes-free let you play without looking down.{" "}
+            <button
+              className="btn-text"
+              onClick={() => {
+                markFeatureTipShown();
+                go("settings");
+              }}
+            >
+              Open Settings
+            </button>{" "}
+            <button className="btn-text" onClick={markFeatureTipShown}>
+              Dismiss
+            </button>
+          </div>
+        )}
         {recoverable && (
           <div className="stack gap-8" style={{ marginBottom: 8 }}>
             <p className="t-17">
@@ -118,12 +138,15 @@ export function HomeScreen() {
             Start
           </button>
         )}
-        <button className="daily" onClick={() => !daily && start({ daily: true })} aria-disabled={Boolean(daily)}>
-          <span className="daily-title">Daily #{dailyNumber(today)}</span>
-          <span className="daily-sub">
-            {daily ? `Done today: ${pct(daily.accuracy)}%. A new one tomorrow.` : "3 minutes, the same challenge for everyone today."}
-          </span>
-        </button>
+        {daily ? (
+          <p className="daily-line">
+            Daily #{dailyNumber(today)} done: {pct(daily.accuracy)}%. A new one tomorrow.
+          </p>
+        ) : (
+          <button className="daily-line btn-text" onClick={() => start({ daily: true })}>
+            Daily #{dailyNumber(today)}: 3 minutes, the same for everyone
+          </button>
+        )}
         <div className="btn-row spread">
           {recoverable && (
             <button className="btn-text" onClick={() => start()}>

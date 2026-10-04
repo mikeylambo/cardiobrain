@@ -87,17 +87,103 @@
         margin: 0;
         background: #16181d;
       }
+      /* Inline so the splash paints, in Archivo, before the CSS bundle arrives (the font is preloaded above). */
+      @font-face {
+        font-family: "Archivo";
+        font-style: normal;
+        font-display: swap;
+        font-weight: 100 900;
+        font-stretch: 62% 125%;
+        src: url("/fonts/archivo-latin-wdth.woff2") format("woff2-variations");
+      }
+      /* Splash: the same mark as the native and iOS launch images, then a short flourish. */
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        background: #16181d;
+        color: #f4f4f1;
+        transition:
+          opacity 320ms cubic-bezier(0.2, 0.8, 0.2, 1),
+          transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      #splash.out {
+        opacity: 0;
+        transform: scale(1.04);
+        pointer-events: none;
+      }
+      .splash-mark {
+        width: min(28vw, 28vh, 120px);
+        height: auto;
+        overflow: visible;
+      }
+      .splash-ring {
+        transform-origin: 32px 32px;
+        animation: splash-spin 900ms cubic-bezier(0.2, 0.8, 0.2, 1) 120ms both;
+      }
+      .splash-dot {
+        transform-origin: 47.56px 16.44px;
+        animation: splash-dot 520ms cubic-bezier(0.3, 1.6, 0.5, 1) 520ms both;
+      }
+      .splash-word {
+        font:
+          800 28px/1 Archivo,
+          "Arial Narrow",
+          sans-serif;
+        font-stretch: 75%;
+        letter-spacing: -0.01em;
+        animation: splash-word 420ms cubic-bezier(0.2, 0.8, 0.2, 1) 640ms both;
+      }
+      @keyframes splash-spin {
+        from {
+          transform: rotate(-120deg);
+        }
+        to {
+          transform: rotate(0);
+        }
+      }
+      @keyframes splash-dot {
+        0% {
+          transform: scale(1);
+        }
+        45% {
+          transform: scale(1.5);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+      /* Transform only: text that starts invisible never counts as first contentful paint. */
+      @keyframes splash-word {
+        from {
+          transform: translateY(10px);
+        }
+        to {
+          transform: none;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .splash-ring,
+        .splash-dot,
+        .splash-word {
+          animation: none;
+        }
+      }
     </style>
   </head>
   <body>
-    <div id="root">
-      <div class="boot" aria-label="CardioBrain is loading">
-        <svg viewBox="0 0 64 64" width="40" height="40" aria-hidden="true">
-          <path d="M39.52 11.33 A22 22 0 1 0 52.67 24.48" fill="none" stroke="#F4F4F1" stroke-width="9" />
-          <circle cx="47.56" cy="16.44" r="5.6" fill="#FFC400" />
-        </svg>
-        <span>CardioBrain</span>
-      </div>
+    <div id="root"></div>
+    <div id="splash" role="img" aria-label="CardioBrain">
+      <svg class="splash-mark" viewBox="0 0 64 64" width="96" height="96" aria-hidden="true">
+        <path class="splash-ring" d="M39.52 11.33 A22 22 0 1 0 52.67 24.48" fill="none" stroke="#F4F4F1" stroke-width="9" />
+        <circle class="splash-dot" cx="47.56" cy="16.44" r="5.6" fill="#FFC400" />
+      </svg>
+      <span class="splash-word">CardioBrain</span>
     </div>
     <noscript>CardioBrain needs JavaScript to run.</noscript>
     <script type="module" src="/src/main.tsx"></script>

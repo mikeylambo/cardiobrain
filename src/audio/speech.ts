@@ -18,6 +18,24 @@ if (typeof speechSynthesis !== "undefined") {
 
 export const isSpeechSupported = () => isNative || typeof speechSynthesis !== "undefined";
 
+let primed = false;
+/**
+ * iOS Safari only lets a page speak after speech has started inside a user gesture. The
+ * first real prompt arrives after the countdown, outside any tap, so the Start tap calls
+ * this to speak a silent utterance and unlock speech for the session.
+ */
+export function primeSpeech(): void {
+  if (primed || isNative || typeof speechSynthesis === "undefined") return;
+  try {
+    const u = new SpeechSynthesisUtterance(" ");
+    u.volume = 0;
+    speechSynthesis.speak(u);
+    primed = true;
+  } catch {
+    // Nothing to unlock.
+  }
+}
+
 /** Say it now, cutting off anything still being said. */
 export function say(text: string): void {
   if (!text) return;

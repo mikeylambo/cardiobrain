@@ -101,7 +101,7 @@ test("results with check-ins, insights, settings", async ({ page }) => {
   await page.getByRole("button", { name: "Insights" }).click();
   await snap(page, "v21-12-insights");
   await page.getByRole("button", { name: "Back to Home" }).click();
-  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   await snap(page, "v21-13-settings-top");
   await page.evaluate(() => window.scrollTo(0, 900));
   await snap(page, "v21-14-settings-mid", 300);

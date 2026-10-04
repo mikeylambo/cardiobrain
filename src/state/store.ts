@@ -146,6 +146,8 @@ interface State {
   markModeSeen: (mode: ModeId) => void;
   markPauseHintShown: () => void;
   markBackedUp: () => void;
+  markMotionNudged: (mode: ModeChoice) => void;
+  markFeatureTipShown: () => void;
 }
 
 const now = () => performance.now();
@@ -491,13 +493,15 @@ export const useStore = create<State>((set, get) => {
         timestamp: Date.now(),
       };
       const prior: DifficultyState = a.levels[challenge.mode] ?? createDifficultyState();
-      const level = updateDifficulty(
+      const updated = updateDifficulty(
         prior,
         { correct, responseMs: responseMs || challenge.targetRt, targetRt: challenge.targetRt },
         a.activity,
         challenge.mode,
         difficultyBias,
       );
+      // The guided first round stays gentle; placement continues in your first real session.
+      const level = a.guided ? { ...updated, level: Math.min(updated.level, 4) } : updated;
       const memo = challenge.data.memo;
       const memory = typeof memo === "string" ? { ...a.memory, [challenge.mode]: [...(a.memory[challenge.mode] ?? []), memo].slice(-4) } : a.memory;
       set({
@@ -719,6 +723,20 @@ export const useStore = create<State>((set, get) => {
 
     markPauseHintShown: () => {
       const flags = { ...get().flags, pauseHintShown: true };
+      saveFlags(flags);
+      set({ flags });
+    },
+
+    markMotionNudged: (mode) => {
+      const f = get().flags;
+      if (f.motionNudged.includes(mode)) return;
+      const flags = { ...f, motionNudged: [...f.motionNudged, mode] };
+      saveFlags(flags);
+      set({ flags });
+    },
+
+    markFeatureTipShown: () => {
+      const flags = { ...get().flags, featureTipShown: true };
       saveFlags(flags);
       set({ flags });
     },

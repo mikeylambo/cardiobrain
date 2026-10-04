@@ -61,7 +61,7 @@ for (const { w, h } of SIZES) {
       await snap(page, `${tag}-10-session-detail`);
       await page.getByRole("button", { name: "Close" }).click();
       await page.getByRole("button", { name: "Back to Home" }).click();
-      await page.getByRole("button", { name: "Settings" }).click();
+      await page.getByRole("button", { name: "Settings", exact: true }).click();
       await snap(page, `${tag}-11-settings`);
     });
 

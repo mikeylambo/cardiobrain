@@ -30,7 +30,7 @@ export async function tapRandomTile(page: Page): Promise<boolean> {
   const n = await tiles.count();
   if (!n) return false;
   const tile = tiles.nth(Math.floor(Math.random() * n));
-  const box = await tile.boundingBox().catch(() => null);
+  const box = await tile.boundingBox({ timeout: 1000 }).catch(() => null);
   if (!box) return false;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
@@ -128,7 +128,8 @@ export async function answerCorrectly(page: Page): Promise<boolean> {
   for (const id of answer.split(" ")) {
     const tile = page.locator(`.tile[data-answer="${id}"]:not([disabled])`);
     if (!(await tile.count())) return false;
-    const box = await tile.boundingBox();
+    // The challenge can change or the session end between finding a tile and measuring it.
+    const box = await tile.boundingBox({ timeout: 1000 }).catch(() => null);
     if (!box) return false;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();

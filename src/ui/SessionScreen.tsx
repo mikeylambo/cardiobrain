@@ -174,21 +174,33 @@ export function SessionScreen() {
   }, [prefs.speak, prefs.eyesFree, phase, current]);
 
   // Voice answers: one listener for the session, matched against whatever is on screen.
+  // "Pause" or "stop" pauses; while paused, "resume", "continue" or "go" brings it back.
+  const listening = prefs.voiceAnswers && (phase === "running" || phase === "paused");
   React.useEffect(() => {
-    if (!prefs.voiceAnswers || phase !== "running") return;
+    if (!listening) return;
     const l = listen(
       (heard) => {
         const s = useStore.getState().active;
-        const c = s?.current;
-        if (!s || !c || c.voice === false || s.answered || s.presentedAt === null) return;
+        if (!s) return;
         if (performance.now() < speakingUntil.current) return;
+        const words = heard.toLowerCase();
+        if (s.phase === "paused") {
+          if (/\b(resume|continue|go|start)\b/.test(words)) resume();
+          return;
+        }
+        if (/\b(pause|stop)\b/.test(words)) {
+          pause();
+          return;
+        }
+        const c = s.current;
+        if (!c || c.voice === false || s.answered || s.presentedAt === null) return;
         const id = matchSpoken(heard, c.options);
         if (id) handleAnswer(id);
       },
       (message) => setVoiceNote(message),
     );
     return () => l.stop();
-  }, [prefs.voiceAnswers, phase, handleAnswer]);
+  }, [listening, handleAnswer, pause, resume]);
 
   // First-time coach line for each mode, on its first few challenges.
   const [seenAtStart] = React.useState(() => new Set(flags.seenModes));
@@ -306,7 +318,7 @@ export function SessionScreen() {
           </span>
         )}
         {active.streak >= 3 && (
-          <span className="streak num" aria-label={`${active.streak} in a row`}>
+          <span key={active.streak} className="streak num bump" aria-label={`${active.streak} in a row`}>
             ×{active.streak}
           </span>
         )}

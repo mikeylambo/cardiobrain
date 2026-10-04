@@ -14,7 +14,7 @@ test("daily challenge: plays, scores as Daily #N, and shows done on Home", async
   await play(page, 12000);
   await expect(page.getByRole("heading", { name: /^Daily #\d+ done\.$/ })).toBeVisible();
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByText(/Done today: \d+%/)).toBeVisible();
+  await expect(page.getByText(/Daily #\d+ done: \d+%/)).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -114,7 +114,7 @@ test("heart-rate strap: connects over Bluetooth and shows live bpm in the sessio
   });
   await prime(page, { mode: "numbers", seconds: 600 });
   await page.goto("/");
-  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("button", { name: "Connect" }).click();
   await expect(page.getByText(/158 bpm now/)).toBeVisible();
   await page.getByRole("button", { name: "Back to Home" }).click();
@@ -134,7 +134,7 @@ test("backup and restore round-trip", async ({ page }) => {
   await prime(page, { mode: "numbers" });
   await page.goto("/");
   await seedHistory(page, 5);
-  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Back up (export)" }).click();
   const file = await (await download).path();
@@ -147,7 +147,7 @@ test("backup and restore round-trip", async ({ page }) => {
   await page.getByRole("button", { name: /Walk/ }).waitFor();
   await page.evaluate(() => localStorage.setItem("cb-flags", JSON.stringify({ onboarded: true })));
   await page.reload();
-  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.locator('input[type="file"]').setInputFiles(file!);
   await expect(page.getByText("Imported 5 sessions.")).toBeVisible();
   await page.locator('input[type="file"]').setInputFiles(file!);

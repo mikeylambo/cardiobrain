@@ -27,7 +27,12 @@ export const MODE_INFO: Record<ModeChoice, ModeInfo> = {
   react: { id: "react", label: "React", description: "Tap where the circle lands.", instruction: "Tap where it lands. Hold on a square." },
   recall: { id: "recall", label: "Recall", description: "Watch a sequence, then repeat it.", instruction: "Watch the shapes, then repeat them." },
   rhyme: { id: "rhyme", label: "Rhyme", description: "Find the word that rhymes.", instruction: "Listen for the sound, not the spelling." },
-  nback: { id: "nback", label: "N-back", description: "Same letter as a few back?", instruction: "Tap Match when the letter repeats from N back." },
+  nback: {
+    id: "nback",
+    label: "Look back",
+    description: "Same letter as one, two or three back? (N-back)",
+    instruction: "Tap Match when the letter repeats from that many back.",
+  },
   estimate: { id: "estimate", label: "Estimate", description: "Dots flash. About how many?", instruction: "Go by feel. There isn't time to count." },
   rotate: { id: "rotate", label: "Rotate", description: "Same shape turned, or a mirror?", instruction: "Turn it in your head. Same, or mirrored?" },
 };

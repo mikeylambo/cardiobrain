@@ -2,6 +2,8 @@
 // Everything routes through one master gain and a compressor so the chime, the low note
 // and the chords land at the same perceived loudness, with a conservative peak for earbuds.
 
+import { primeSpeech } from "./speech";
+
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let enabled = true;
@@ -33,6 +35,7 @@ function audio(): { ctx: AudioContext; out: AudioNode } | null {
 
 /** iOS Safari only starts audio from inside a user gesture. Call on the first tap. */
 export function unlockAudio(): void {
+  primeSpeech();
   const a = audio();
   if (a && a.ctx.state === "suspended") void a.ctx.resume().catch(() => undefined);
 }
@@ -91,6 +94,8 @@ export const sfx = {
   },
   symbol: (shape: string) => tone(RECALL_NOTES[shape] ?? 660, 0.16, 0.16),
   count: () => tone(1200, 0.025, 0.08, 0, "triangle"),
+  /** The quietest sound in the app: a short tick under every press. */
+  tap: () => tone(1500, 0.018, 0.05, 0, "triangle"),
   complete: () => {
     [523.25, 659.25, 783.99].forEach((f) => tone(f, 0.5, 0.12));
     tone(1046.5, 0.6, 0.1, 0.12);

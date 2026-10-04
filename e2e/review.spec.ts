@@ -42,7 +42,7 @@ test("home, setup sheet, history, settings", async ({ page }, info) => {
   await page.getByRole("button", { name: "History" }).click();
   await checkFloor(page, "history");
   await page.getByRole("button", { name: "Back to Home" }).click();
-  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   await checkFloor(page, "settings");
 });
 

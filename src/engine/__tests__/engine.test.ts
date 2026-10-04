@@ -22,21 +22,24 @@ describe("difficulty", () => {
     for (let i = 0; i < n; i++) s = updateDifficulty(s, { correct, responseMs: rt, targetRt: 1500 }, "walk", "numbers", "standard");
     return s;
   };
-  it("calibrates through levels 1-4 over the first 20 trials", () => {
-    const s = feed(createDifficultyState(), 20, true, 500);
-    expect(s.level).toBe(4);
+  it("places a new mode fast: quick correct answers climb one level each, for 12 challenges", () => {
+    expect(feed(createDifficultyState(), 12, true, 300).level).toBe(12);
+    expect(feed(createDifficultyState(), 12, false, 300).level).toBe(1);
+    // Slow but right holds the level.
+    expect(feed(createDifficultyState(), 12, true, 5000).level).toBe(1);
   });
-  it("climbs when accurate and fast, at most one level per 6 trials", () => {
-    const s = feed(feed(createDifficultyState(), 20, true, 300), 12, true, 300);
-    expect(s.level).toBeGreaterThan(4);
-    expect(s.level).toBeLessThanOrEqual(6);
+  it("after placement, at most one level per 6 trials", () => {
+    const placed = feed(createDifficultyState(), 12, true, 300);
+    const s = feed(placed, 12, true, 300);
+    expect(s.level).toBeGreaterThan(placed.level);
+    expect(s.level).toBeLessThanOrEqual(placed.level + 2);
   });
   it("drops when accuracy falls under 60%", () => {
     const start = feed(feed(createDifficultyState(), 20, true, 300), 30, true, 300);
     const s = feed(start, 16, false, 300);
-    // One change per 6 trials at most: 16 misses can cost two levels, never more.
+    // One change per 6 trials at most: 16 misses can cost three levels, never more.
     expect(s.level).toBeLessThan(start.level);
-    expect(s.level).toBeGreaterThanOrEqual(start.level - 2);
+    expect(s.level).toBeGreaterThanOrEqual(start.level - 3);
   });
   it("never leaves 1..MAX_LEVEL", () => {
     expect(feed(createDifficultyState(), 400, true, 1).level).toBeLessThanOrEqual(MAX_LEVEL);

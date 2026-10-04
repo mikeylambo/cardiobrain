@@ -98,7 +98,15 @@ export function Tiles({
         const picked = feedback?.pickedId === o.id || pressedId === o.id;
         const wrongPick = feedback && !feedback.correct && feedback.pickedId === o.id;
         const reveal = feedback && !feedback.correct && feedback.correctId === o.id;
-        const cls = ["tile", variant === "word" || variant === "label" ? "word" : "", picked ? "pressed" : "", wrongPick ? "nudge" : "", reveal ? "reveal" : ""]
+        const burst = feedback?.correct && feedback.pickedId === o.id;
+        const cls = [
+          "tile",
+          variant === "word" || variant === "label" ? "word" : "",
+          picked ? "pressed" : "",
+          wrongPick ? "nudge" : "",
+          reveal ? "reveal" : "",
+          burst ? "correct-burst" : "",
+        ]
           .filter(Boolean)
           .join(" ");
         return (

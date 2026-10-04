@@ -48,6 +48,10 @@ export interface Flags {
   seenModes: ModeId[];
   pauseHintShown: boolean;
   lastBackupAt: number | null;
+  /** Modes whose "play it seated" reminder has already shown once. */
+  motionNudged: ModeChoice[];
+  /** The one-time tip pointing at Read aloud and Eyes-free. */
+  featureTipShown: boolean;
 }
 
 export type PersistedProgress = Partial<Record<ModeId, DifficultyState>>;
@@ -70,7 +74,15 @@ export const DEFAULT_PREFS: UserPrefs = {
   logToHealth: false,
 };
 export const DEFAULT_SETUP: SessionSetup = { activity: "walk", mode: "mix", duration: 20, mixModes: ALL_MODES, intervals: "off", playDuring: "work" };
-export const DEFAULT_FLAGS: Flags = { onboarded: false, installOffered: false, seenModes: [], pauseHintShown: false, lastBackupAt: null };
+export const DEFAULT_FLAGS: Flags = {
+  onboarded: false,
+  installOffered: false,
+  seenModes: [],
+  pauseHintShown: false,
+  lastBackupAt: null,
+  motionNudged: [],
+  featureTipShown: false,
+};
 
 // IndexedDB can be unavailable (private windows, storage pressure). Every call degrades
 // to an in-memory copy and reports the failure once so the app can say so quietly.

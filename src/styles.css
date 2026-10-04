@@ -846,10 +846,10 @@ p {
     calc(env(safe-area-inset-left) + var(--gutter));
 }
 .countdown {
-  justify-content: flex-end;
-  align-items: flex-start;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 22dvh);
-  gap: 4px;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
 }
 .countdown .cue {
   font-stretch: 62%;
@@ -862,7 +862,6 @@ p {
   font-stretch: 62%;
   font-weight: 800;
   line-height: 0.85;
-  margin-left: -0.04em;
 }
 .countdown .num-big.tick {
   animation: count-tick 900ms var(--ease) both;
@@ -1705,4 +1704,259 @@ p {
     padding-top: calc(env(safe-area-inset-top) + 4px);
     padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
   }
+}
+.checkin-hint {
+  font-weight: 500;
+  font-size: var(--fs-14);
+  margin-left: 6px;
+}
+.checkin {
+  margin-top: 16px;
+}
+
+.daily-line {
+  font-size: var(--fs-17);
+  font-weight: 650;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  text-align: left;
+  padding: 0;
+}
+p.daily-line {
+  min-height: 0;
+  padding: 4px 0;
+}
+.mode-current {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mode-row[data-selected="true"] {
+  background: var(--asphalt);
+  color: var(--chalk);
+}
+.mode-row[data-selected="true"] span {
+  color: #c9cac4;
+}
+
+/* ---------- Feel: presses, correct bursts, streak bumps ---------- */
+:root {
+  --spring: cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.btn-primary,
+.btn-text,
+.segment,
+.chip,
+.mode-row,
+.icon-btn,
+.rpe-btn,
+.activity-block,
+.undo,
+.daily-line,
+.switch {
+  transition:
+    transform 220ms var(--spring),
+    background var(--t-feedback) var(--ease),
+    color var(--t-feedback) var(--ease),
+    filter 120ms var(--ease);
+}
+.btn-primary:active,
+.segment:active,
+.chip:active,
+.mode-row:active,
+.rpe-btn:active,
+.undo:active {
+  transform: scale(0.96);
+  transition-duration: 70ms;
+}
+.btn-primary:active {
+  filter: brightness(0.9);
+}
+.btn-text:active,
+.icon-btn:active,
+.daily-line:active {
+  transform: scale(0.94);
+  transition-duration: 70ms;
+}
+.activity-block:active {
+  transform: scale(0.97);
+  transition-duration: 70ms;
+}
+
+.tile {
+  position: relative;
+  transition:
+    transform 240ms var(--spring),
+    background var(--t-feedback) var(--ease),
+    color var(--t-feedback) var(--ease);
+}
+.tile:active:not(:disabled) {
+  transform: scale(0.955);
+  transition-duration: 60ms;
+}
+.tile.pressed {
+  transform: scale(0.97);
+}
+.tile.correct-burst {
+  animation: tile-pop 300ms var(--spring);
+}
+.tile.correct-burst::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: calc(var(--radius) + 3px);
+  box-shadow: 0 0 0 3px var(--on-field);
+  animation: burst 380ms var(--ease) forwards;
+  pointer-events: none;
+}
+@keyframes tile-pop {
+  0% {
+    transform: scale(0.95);
+  }
+  55% {
+    transform: scale(1.045);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes burst {
+  from {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.14);
+  }
+}
+.tile.nudge {
+  animation:
+    nudge 120ms var(--ease) 2,
+    dim 360ms var(--ease);
+}
+@keyframes dim {
+  50% {
+    filter: brightness(0.82);
+  }
+}
+.streak.bump {
+  animation: bump 260ms var(--spring);
+}
+@keyframes bump {
+  40% {
+    transform: scale(1.35);
+  }
+}
+
+/* ---------- Screen transitions (View Transitions API; plain fade elsewhere) ---------- */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 300ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+html[data-nav="forward"]::view-transition-old(root) {
+  animation-name: vt-out-left;
+}
+html[data-nav="forward"]::view-transition-new(root) {
+  animation-name: vt-in-right;
+}
+html[data-nav="back"]::view-transition-old(root) {
+  animation-name: vt-out-right;
+}
+html[data-nav="back"]::view-transition-new(root) {
+  animation-name: vt-in-left;
+}
+html[data-nav="up"]::view-transition-old(root) {
+  animation-name: vt-recede;
+}
+html[data-nav="up"]::view-transition-new(root) {
+  animation-name: vt-rise;
+  animation-duration: 380ms;
+}
+@keyframes vt-out-left {
+  to {
+    transform: translateX(-18%);
+    opacity: 0;
+  }
+}
+@keyframes vt-in-right {
+  from {
+    transform: translateX(28%);
+    opacity: 0;
+  }
+}
+@keyframes vt-out-right {
+  to {
+    transform: translateX(18%);
+    opacity: 0;
+  }
+}
+@keyframes vt-in-left {
+  from {
+    transform: translateX(-28%);
+    opacity: 0;
+  }
+}
+@keyframes vt-recede {
+  to {
+    transform: scale(0.94);
+    opacity: 0.4;
+  }
+}
+@keyframes vt-rise {
+  from {
+    clip-path: inset(100% 0 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+/* With view transitions running, the per-screen enter animation would double up. */
+html.vt .screen {
+  animation: none;
+}
+
+/* ---------- Splash ---------- */
+#splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: var(--asphalt);
+  color: var(--chalk);
+  transition:
+    opacity 320ms var(--ease),
+    transform 420ms var(--ease);
+}
+#splash.out {
+  opacity: 0;
+  transform: scale(1.04);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile.correct-burst,
+  .tile.correct-burst::after,
+  .streak.bump {
+    animation: none !important;
+  }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
+}
+.reduce-motion .tile.correct-burst,
+.reduce-motion .tile.correct-burst::after,
+.reduce-motion .streak.bump {
+  animation: none !important;
+}
+/* Results rises in like the session wipe; it manages its own entrance instead of a view transition. */
+.screen.results {
+  animation: wipe-up 380ms var(--ease) both;
 }
