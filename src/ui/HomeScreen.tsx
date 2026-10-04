@@ -18,6 +18,7 @@ export function HomeScreen({ navigate }: { navigate:(screen:"home"|"setup"|"hist
   const active=useCardioStore(s=>s.active);
   const resumeAvailable=useCardioStore(s=>s.resumeAvailable);
   const start=useCardioStore(s=>s.startCountdown);
+  const setScreen=useCardioStore(s=>s.setScreen);
   const resume=useCardioStore(s=>s.resumeSession);
   const setSetup=useCardioStore(s=>s.setSetup);
   const last=history[0];
@@ -53,7 +54,7 @@ export function HomeScreen({ navigate }: { navigate:(screen:"home"|"setup"|"hist
         <div className="stat"><div className="stat-value tabular">{streak}<span style={{fontSize:13,color:"var(--activity)"}}> DAY</span></div><div className="stat-label">CURRENT STREAK</div></div>
         <div className="stat"><div className="stat-value tabular">{last?fmt(last.avgRt):"—"}</div><div className="stat-label">LAST AVG RT</div></div>
       </div>
-      <div><button className="action-primary" onClick={start}>Start session</button>{last&&<button className="action-secondary" style={{width:"100%",marginTop:9}} onClick={sameAsLast}>Same as last time · {modeLabel(last.requestedMode)} · {last.activity.toUpperCase()}</button>}</div>
+      <div><button className="action-primary" onClick={()=>setScreen("setup")}>Start session</button>{last&&<button className="action-secondary" style={{width:"100%",marginTop:9}} onClick={sameAsLast}>Same as last time · {modeLabel(last.requestedMode)} · {last.activity.toUpperCase()}</button>}</div>
     </section>
 
     <AnimatePresence>
