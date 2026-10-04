@@ -115,6 +115,16 @@ for (const { w, h } of SIZES) {
         await page.locator(".results").waitFor();
         await snap(page, `${tag}-14-results-${activity}-start`, 120);
         await snap(page, `${tag}-15-results-${activity}-end`, 1400);
+        if (activity !== "walk") return;
+        // A second matching session, so Results has something to compare against.
+        await page.getByRole("button", { name: "Go again" }).click();
+        await page.locator(".countdown").waitFor({ state: "detached" });
+        const again = Date.now() + 15000;
+        while (Date.now() < again && !(await page.locator(".results").count())) {
+          await tapRandomTile(page);
+          await page.waitForTimeout(500);
+        }
+        await snap(page, `${tag}-16-results-compared`, 1500);
       });
     }
   });

@@ -43,11 +43,11 @@ export async function renderShareCard(result: SessionResult, title: string, d: D
   const stats: Array<[string, string, string]> = [
     ["Duration", minutesLabel(result.durationSeconds), ""],
     ["Challenges", String(result.challenges), `Best streak ${result.bestStreak}`],
-    ["Average response", secs(result.avgRt), rtDeltaText(d.rtSeconds)],
+    ["Average response", secs(result.avgRt), d.rtSeconds === null ? "" : rtDeltaText(d.rtSeconds)],
   ];
   let y = 960;
   font(600, 34);
-  ctx.fillText(accuracyDeltaText(d.accuracyPoints), PAD, 920);
+  ctx.fillText(d.accuracyPoints === null ? "Accuracy" : `Accuracy. ${accuracyDeltaText(d.accuracyPoints)}.`, PAD, 920);
   for (const [label, value, note] of stats) {
     ctx.fillRect(PAD, y, W - PAD * 2, 4);
     font(600, 38);

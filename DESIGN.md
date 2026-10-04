@@ -1,57 +1,51 @@
-# CardioBrain — Visual Identity
+# CardioBrain: Design
 
-Reference mood: midnight athletic instrument. Think premium running watch plus modern scientific measuring device. Avoid game-show fitness, cyberpunk, or generic SaaS dashboard treatment.
+**Subject:** someone mid-workout, glancing at a phone for under a second, in full sun or a dim gym. Every screen has to be read instantly, tapped with a shaky thumb, and feel like an athletic product rather than a dashboard.
 
-Palette:
+**The one bold move:** during a session, the whole screen is one flat, saturated activity color, with giant condensed type and large chalk tiles. Everything outside the session stays quiet.
 
-- OLED black #05060A
-- panel #0C0F16 / #10141D
-- text #F5F6FA
-- secondary #8E95A7
-- Walk #5EEAD4
-- Bike #F5B84B
-- Stairs #AF88FF
-- Run #FF8B72
+## Tokens (source of truth: `src/styles.css`, checked by `npm run contrast`)
 
-Typography:
+| Token                | Hex       | Text on it       |
+| -------------------- | --------- | ---------------- |
+| Lagoon (Walk)        | `#0B7A6B` | White, 5.24:1    |
+| Signal (Bike)        | `#FFC400` | Asphalt, 11.12:1 |
+| Ultraviolet (Stairs) | `#5B2EFF` | White, 6.40:1    |
+| Vermilion (Run)      | `#FF4B2B` | Asphalt, 5.32:1  |
+| Asphalt              | `#16181D` | Chalk, 16.12:1   |
+| Chalk                | `#F4F4F1` | Asphalt, 16.12:1 |
+| Muted (on Chalk)     | `#5A5D66` | 5.97:1           |
 
-- display: Sora / Space Grotesk class geometric sans
-- UI: system sans
-- 54px hero, 38px section, 64–116px live stimulus, 50–92px secondary stimulus, 70px result score, 27px metrics, 14–16px body, 10–12px eyebrows
-- tabular numerals for every changing number
+- No red for wrong answers, no gradients, no glows.
+- Tiles on Signal carry a 2px Asphalt edge, because chalk on yellow can't meet the 3:1 non-text floor.
+- The primary button is Chalk on Lagoon and Ultraviolet, Asphalt on Signal and Vermilion.
 
-Spacing:
+## Type
 
-- 4px base
-- preferred rhythm 8 / 12 / 16 / 20 / 24 / 32 / 48px
-- sibling controls 8–12px
-- major idea separation 32–48px
+Archivo variable (width axis), self-hosted and preloaded.
 
-Motion:
+- **Display and stimulus:** 62% width, weight 800, line-height 0.92.
+- **Body:** 100% width, weight 500–650.
+- **Scale:** 14 / 17 / 24 / 40 / 72 / 160.
+- **Numbers:** tabular figures for all changing numbers.
+- **Style:** sentence case, no tracked capitals, no monospace labels.
 
-- enter 220ms cubic-bezier(.22,1,.36,1)
-- exit 140ms cubic-bezier(.4,0,1,1)
-- press 90ms to 96% scale
-- feedback bloom 260ms cubic-bezier(.22,1,.36,1)
-- countdown 420ms cubic-bezier(.16,1,.3,1)
-- result count-up 900ms ease-out
-- no spring physics during live trials
-- reduced motion removes movement but keeps state, sound, and haptics
+## Layout
 
-Running layout:
+- 20px gutters, left-aligned.
+- One primary action per screen, in the bottom 40%.
+- Answer tiles at least 96px tall (132px when there are only two), with 12px gaps.
+- Every control is at least 48px.
+- Structure comes from color blocks and whitespace. No card grids.
 
-- top 8–10%: mode, elapsed, pause
-- middle 55–60%: one dominant stimulus
-- bottom 30–35%: answer pads, minimum 88px high
-- no navigation or explanatory paragraphs during live trial
+## Motion
 
-Screen copy:
-Home: TRAIN IN MOTION / Keep moving. / Stay sharp. / Short cognitive challenges built for the space between breaths. / Start session
-Setup: SESSION SETUP / Build the right session. / Your activity changes the timing, not the goal. / Continue to countdown
-Countdown: 3 / 2 / 1 / GO
-Pause: PAUSED / Catch your breath. / Resume when the next challenge can get your full attention.
-Results: COMPLETE / Locked in. / Compared with your last matching session. / Go again / Share result / View history
-History: Proof of practice. / Small sessions add up. The trend is the thing.
-Settings: Tune the experience. / Everything stays on this device.
+- Ease `cubic-bezier(0.2, 0.8, 0.2, 1)`. Feedback 120ms, screen change 280ms.
+- **The orchestrated moment:** the 3-2-1 on the field, then the session layer wipes up (360ms) and the stimulus resolves from condensed width.
+- **Correct:** the stimulus breathes (wider, then back). **Wrong:** the tile nudges 4px.
+- **Results:** a 0 to N count-up over 900ms with a tick every 10 points. Tap to skip.
+- **Reduced motion:** every animation becomes a fade under 100ms.
 
-Quality rule: measurement, not competition. The phone should feel like a precision instrument while the workout is underway.
+## Voice
+
+Plain, specific, sentence case: "Start", "Resume", "Go again", "Paused. Your session is saved." Errors say what happened and what to do next.

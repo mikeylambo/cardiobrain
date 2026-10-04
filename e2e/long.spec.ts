@@ -5,16 +5,18 @@ import { expect, test } from "@playwright/test";
 import { pauseAndResume, play, prime, setHidden, startFromHome, watchErrors, type Mode } from "./helpers";
 
 const MODES: Mode[] = ["numbers", "switch", "react", "recall", "rhyme", "mix"];
+const SECONDS = Number(process.env.LONG_SECONDS ?? 180);
+const SLICE = Math.round((SECONDS * 1000 * 0.45) / 10);
 
 for (const mode of MODES) {
   test(`${mode}: 3-minute session @long`, async ({ page }) => {
     test.setTimeout(8 * 60_000);
     const errors = watchErrors(page);
-    await prime(page, { mode, activity: "run", seconds: 180 });
+    await prime(page, { mode, activity: "run", seconds: SECONDS });
     await page.goto("/");
     await startFromHome(page);
     for (let i = 0; i < 10; i++) {
-      await play(page, 8000);
+      await play(page, SLICE);
       await pauseAndResume(page);
     }
     // Background past the auto-pause threshold, then come back.
@@ -29,7 +31,7 @@ for (const mode of MODES) {
     await page.getByRole("button", { name: "Resume your session" }).click();
     await page.getByRole("button", { name: "Resume" }).click();
     await page.locator(".countdown").waitFor({ state: "detached" });
-    await play(page, 200_000);
+    await play(page, SECONDS * 1000 + 20_000);
     await expect(page.locator(".results")).toBeVisible({ timeout: 30_000 });
     const challenges = Number(await page.locator(".stat-value").nth(1).textContent());
     expect(challenges).toBeGreaterThan(20);

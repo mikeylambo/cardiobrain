@@ -14,12 +14,13 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "playwright test --grep-invert @long",
-    "e2e:long": "playwright test --grep @long",
+    "e2e": "playwright test e2e/smoke.spec.ts e2e/flows.spec.ts e2e/review.spec.ts",
+    "e2e:long": "playwright test e2e/long.spec.ts",
     "contrast": "node scripts/check-contrast.mjs",
     "icons": "node scripts/build-icons.mjs",
-    "screens": "playwright test e2e/screens.spec.ts",
-    "cap:sync": "npm run build && cap sync"
+    "screens": "playwright test e2e/screens.spec.ts --project iphone-14",
+    "cap:sync": "npm run build && cap sync",
+    "store:screens": "playwright test e2e/store.spec.ts --project iphone-14"
   },
   "dependencies": {
     "@capacitor-community/keep-awake": "^8.0.1",

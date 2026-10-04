@@ -1206,3 +1206,15 @@ p {
   flex-direction: column;
   gap: 4px;
 }
+
+.boot {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--chalk);
+  font-stretch: 75%;
+  font-weight: 800;
+  font-size: 28px;
+}

@@ -115,7 +115,7 @@ export function ResultsScreen() {
       </div>
       <p className="t-17" style={{ display: "flex", gap: 6, alignItems: "center" }}>
         {accDir && <DeltaGlyph direction={accDir} />}
-        Accuracy. {accuracyDeltaText(d.accuracyPoints)}.
+        {d.accuracyPoints === null ? "Accuracy" : `Accuracy. ${accuracyDeltaText(d.accuracyPoints)}.`}
       </p>
       <p className="sr-only" role="status" aria-live="polite">
         {title} {pct(result.accuracy)} percent accuracy. {accuracyDeltaText(d.accuracyPoints)}.
@@ -134,10 +134,12 @@ export function ResultsScreen() {
         <div className="stat">
           <span className="stat-label">Average response</span>
           <span className="stat-value num">{secs(result.avgRt)}</span>
-          <span className="stat-delta">
-            {rtDir && <DeltaGlyph direction={rtDir} />}
-            {rtDeltaText(d.rtSeconds)}
-          </span>
+          {d.rtSeconds !== null && (
+            <span className="stat-delta">
+              {rtDir && <DeltaGlyph direction={rtDir} />}
+              {rtDeltaText(d.rtSeconds)}
+            </span>
+          )}
         </div>
         {cost && (
           <div className="stat">

@@ -4,6 +4,7 @@ import { setHapticsEnabled } from "./haptics";
 import { hideSplash, setStatusBar } from "./platform/native";
 import { onStorageFailure } from "./storage";
 import { useStore, type Screen } from "./state/store";
+import { Mark } from "./ui/components";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { HistoryScreen } from "./ui/HistoryScreen";
 import { HomeScreen } from "./ui/HomeScreen";
@@ -50,6 +51,12 @@ export function App() {
 
   return (
     <ErrorBoundary>
+      {screen === "boot" && (
+        <div className="boot" aria-label="CardioBrain is loading">
+          <Mark width={40} height={40} style={{ color: "#F4F4F1" }} />
+          <span>CardioBrain</span>
+        </div>
+      )}
       {screen === "welcome" && <WelcomeScreen />}
       {screen === "home" && <HomeScreen />}
       {screen === "session" && <SessionScreen />}
