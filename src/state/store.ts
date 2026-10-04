@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { Activity, Challenge, DifficultyBias, DurationChoice, ModeId, SessionResult, SessionStatus, TrialResult } from "../engine/types";
 import { hashSeed, mulberry32 } from "../engine/rng";
 import { MIX_MODE_IDS, CORE_MODE_IDS, MODE_REGISTRY } from "../modes/registry";
+import { normalizeRecallShapeId, RECALL_SHAPE_IDS } from "../modes/recall";
 import { challengeScore, sessionMetrics } from "../engine/scoring";
 import { createDifficultyState, targetResponseMs, updateDifficulty, type DifficultyState } from "../engine/difficulty";
 import { makeSessionId, transition } from "../engine/session";
@@ -52,6 +53,27 @@ function newChallenge(mode: ModeId, level: number, activity: Activity, bias: Dif
   const definition = MODE_REGISTRY[mode];
   if (mode === "rhyme" && definition.View.toString() === "() => null") throw new Error("Rhyme Rush is not ready.");
   return definition.generate(level, rng, { activity, bias, seed, trialIndex });
+}
+
+function migrateActiveSession(snapshot: ActiveSessionSnapshot): ActiveSessionSnapshot {
+  if (snapshot.currentMode !== "recall") return snapshot;
+  const data = snapshot.currentChallenge.data as { sequence?: unknown };
+  const sequence = Array.isArray(data.sequence)
+    ? data.sequence.map((value) => normalizeRecallShapeId(String(value)))
+    : null;
+  if (!sequence || sequence.some((value) => value === null)) return snapshot;
+
+  const normalizedSequence = sequence as Array<typeof RECALL_SHAPE_IDS[number]>;
+  const options = RECALL_SHAPE_IDS.map((id) => ({ id, label: id[0]!.toUpperCase() + id.slice(1) }));
+  return {
+    ...snapshot,
+    currentChallenge: {
+      ...snapshot.currentChallenge,
+      options,
+      correctAnswer: normalizedSequence.join("|"),
+      data: { ...snapshot.currentChallenge.data, sequence: normalizedSequence }
+    }
+  };
 }
 
 function ensureProgress(progress: PersistedProgress): PersistedProgress {
@@ -134,7 +156,8 @@ export const useCardioStore = create<Store>((set, get) => ({
     const progress = ensureProgress(loadProgress());
     const onboardingDone = localStorage.getItem("cb-onboarding") === "1";
     const resumable = Boolean(activeSnapshot && Date.now() - activeSnapshot.startedAt < 30 * 60 * 1000 && activeSnapshot.status !== "finished");
-    const active = resumable && activeSnapshot ? { ...activeSnapshot, trialStartedPerf: performance.now() } : null;
+    const migratedSnapshot = resumable && activeSnapshot ? migrateActiveSession(activeSnapshot) : null;
+    const active = migratedSnapshot ? { ...migratedSnapshot, trialStartedPerf: performance.now() } : null;
     if (!resumable && activeSnapshot) await clearActiveSession();
     set({
       hydrated:true, history, prefs, progress, onboardingDone,
