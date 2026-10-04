@@ -18,7 +18,17 @@ const shapeLabels: Record<RecallShapeId,string> = {
 
 function ShapeGlyph({id}:{id:string}) {
   if (!(RECALL_SHAPE_IDS as readonly string[]).includes(id)) return null;
-  return <span className={`shape-glyph shape-${id}`} aria-hidden="true" />;
+  const common = { fill: "currentColor" as const };
+  return (
+    <svg className="shape-glyph-svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false" data-shape={id}>
+      {id === "circle" && <circle cx="32" cy="32" r="22" {...common} />}
+      {id === "triangle" && <polygon points="32,7 57,54 7,54" {...common} />}
+      {id === "square" && <rect x="10" y="10" width="44" height="44" rx="6" {...common} />}
+      {id === "diamond" && <polygon points="32,6 58,32 32,58 6,32" {...common} />}
+      {id === "star" && <polygon points="32,5 38.4,24.2 58.7,24.2 42.3,35.8 48.6,55 32,43.2 15.4,55 21.7,35.8 5.3,24.2 25.6,24.2" {...common} />}
+      {id === "plus" && <path d="M25 7h14v18h18v14H39v18H25V39H7V25h18V7Z" {...common} />}
+    </svg>
+  );
 }
 
 export const recallMode: ModeDefinition = {
