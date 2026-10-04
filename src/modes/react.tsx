@@ -1,4 +1,3 @@
-import React from "react";
 import { motion } from "framer-motion";
 import type { Challenge, ModeDefinition } from "../engine/types";
 import { targetResponseMs } from "../engine/difficulty";
