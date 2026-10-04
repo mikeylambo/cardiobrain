@@ -193,7 +193,7 @@ export const rhymeMode:ModeDefinition={
   },
   View:({challenge,onAnswer})=>{
     const data=challenge.data as {label:string};
-    return <div className="mode-view">
+    return <div className="mode-view rhyme-mode">
       <div className="rule-banner">{data.label}</div>
       <motion.div key={challenge.id} initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} className="rhyme-prompt display-face">{challenge.prompt}</motion.div>
       <div className="answer-grid answer-grid-4">{challenge.options.map(option=>
