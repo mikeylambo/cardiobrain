@@ -116,7 +116,7 @@ export const recallMode: ModeDefinition = {
     };
 
     return (
-      <div className="mode-view">
+      <div className="mode-view recall-answer-mode">
         <div className="eyebrow">REPEAT <span>{picked.length}/{data.sequence.length}</span></div>
         <div className="recall-slots">
           {data.sequence.map((_, i) => (
