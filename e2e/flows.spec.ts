@@ -7,13 +7,17 @@ test("first launch: welcome to the first challenge in under 15 seconds, then res
   const t0 = Date.now();
   await page.goto("/");
   await page.getByRole("button", { name: /Walk/ }).click();
+  await page.getByRole("radio", { name: "Mounted" }).click();
+  await page.getByRole("button", { name: "Start a 30-second round" }).click();
   await page.locator(".tile").first().waitFor();
   expect(Date.now() - t0).toBeLessThan(15000);
   await play(page, 14000);
   await page.locator(".results").waitFor();
   await expect(page.getByRole("heading", { name: "First round done." })).toBeVisible();
-  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByText("Your levels adapt as you play.", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Go to Home" }).click();
   await expect(page.getByRole("button", { name: "Start", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("cb-prefs")!).distance)).toBe("arm");
   // Reload: onboarding is done, so it lands on Home, with the round in history.
   await page.reload();
   await expect(page.getByRole("button", { name: "Start", exact: true })).toBeVisible();
@@ -119,4 +123,20 @@ test("share card renders non-empty PNGs in poster and story formats", async ({ p
     expect(buf.subarray(1, 4).toString()).toBe("PNG");
     expect([buf.readUInt32BE(16), buf.readUInt32BE(20)]).toEqual(sizes[format]);
   }
+});
+
+test("Look around first skips the intro; Settings can replay it", async ({ page }) => {
+  await prime(page, { onboarded: false });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Look around first" }).click();
+  await expect(page.getByRole("button", { name: "Start", exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Start", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Replay the intro" }).click();
+  await expect(page.getByText("What are you doing today?")).toBeVisible();
+  await page.getByRole("button", { name: /Bike/ }).click();
+  await expect(page.getByRole("radio", { name: "Mounted" })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("button", { name: "Back" }).click();
+  await expect(page.getByText("What are you doing today?")).toBeVisible();
 });

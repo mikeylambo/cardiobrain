@@ -138,6 +138,10 @@ interface State {
   restoreSession: (r: SessionResult) => void;
   /** Send a mode back to placement: the next session finds its level again. */
   resetLevel: (mode: ModeId) => void;
+  /** Welcome's "Look around first": straight to Home, intro marked done. */
+  skipIntro: () => void;
+  /** Settings: run the welcome and first round again (history and levels stay). */
+  replayIntro: () => void;
   /** Start, asking how you feel first when mood check-ins are on. */
   requestStart: (options?: { daily?: boolean | string }) => void;
   cancelStart: () => void;
@@ -763,6 +767,14 @@ export const useStore = create<State>((set, get) => {
       void saveHistory(history);
       set({ history, lastResult: history[0] ?? null });
     },
+
+    skipIntro: () => {
+      const flags = { ...get().flags, onboarded: true };
+      saveFlags(flags);
+      set({ flags, screen: "home" });
+    },
+
+    replayIntro: () => set({ screen: "welcome" }),
 
     resetLevel: (mode) => {
       const progress = { ...get().progress };

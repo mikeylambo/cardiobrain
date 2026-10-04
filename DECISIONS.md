@@ -206,3 +206,11 @@ Calls made during the builds, newest first. Each one can be revisited; the reaso
 - **"Updated to 2.5" note** on Home, once per minor release. A fresh install starts caught up, and existing users with real sessions see it.
 - **Copy a problem report from the crash screen.** The moment something breaks is when the report matters most.
 - **"Warm-up done"** is shown (and spoken with Read aloud) at 45 seconds, but only when the session actually eased in.
+
+## v2.6: onboarding
+
+- **Two questions before the first round.** Where the phone is (in hand or mounted, which sets the arm's-length scale) and whether you'll mostly look or listen too (which sets Read aloud). Both change how every session plays, and almost nobody finds them in Settings. Defaults are guessed per activity (bike and stairs: mounted). It's still two taps from launch to the first challenge, plus one Start.
+- **Safety and privacy, one line each.** "Keep your eyes up between challenges, and stop if you feel dizzy." "No account. Everything stays on this device." Trust is earned up front, not in a policy page.
+- **Look around first.** Some people want to explore before playing. It marks the intro done and goes to Home.
+- **First-round Results is a "what's next" guide.** After 30 seconds the stats mean little. Instead it explains that levels adapt, then covers Start (with your preset), the Daily, and the seated baseline. The primary action is "Start a full session"; "Go to Home" is secondary.
+- **Replay the intro** (Settings → About) re-runs the welcome without touching history or levels: useful for testers and demos.

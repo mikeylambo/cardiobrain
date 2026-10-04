@@ -2343,3 +2343,68 @@ html[data-feel="strong"] .tile.correct-burst {
   position: static;
   transform: none;
 }
+
+/* ---------- v2.6: onboarding ---------- */
+.welcome .segment {
+  background: rgba(244, 244, 241, 0.12);
+  color: var(--chalk);
+}
+.welcome .segment[aria-checked="true"] {
+  background: var(--chalk);
+  color: var(--asphalt);
+}
+.welcome .group-label {
+  color: var(--chalk);
+  margin-top: 8px;
+}
+.welcome-setup .welcome-lede {
+  margin-bottom: 12px;
+}
+.welcome-note {
+  font-size: var(--fs-14);
+  font-weight: 500;
+  margin: 8px 0 12px;
+  opacity: 0.85;
+  min-height: 2.6em;
+}
+.welcome-safety {
+  font-size: var(--fs-14);
+  font-weight: 600;
+  margin: 16px 0 12px;
+}
+.welcome-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  font-size: var(--fs-14);
+  font-weight: 600;
+}
+.welcome-foot .btn-text {
+  color: var(--chalk);
+  flex: none;
+}
+.welcome .btn-primary {
+  background: var(--chalk);
+  color: var(--asphalt);
+}
+.welcome .btn-text {
+  color: var(--chalk);
+}
+.guided-next {
+  margin-top: 20px;
+  border-top: 2px solid currentColor;
+  padding-top: 14px;
+}
+.guided-next ul {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: var(--fs-17);
+}
+.guided-home {
+  align-self: center;
+}

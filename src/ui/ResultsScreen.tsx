@@ -8,7 +8,20 @@ import { dailyNumber } from "../engine/daily";
 import { modeBreakdown, motionCost, motionCostText, personalBests } from "../engine/insights";
 import { MODE_INFO } from "../modes/registry";
 import { DeltaGlyph, Sheet } from "./components";
-import { ACTIVITY_LABEL, accuracyDeltaText, rivalText, deltas, headline, minutesLabel, pct, previousMatch, rtDeltaText, secs, switchCostText } from "./copy";
+import {
+  ACTIVITY_LABEL,
+  accuracyDeltaText,
+  presetLine,
+  rivalText,
+  deltas,
+  headline,
+  minutesLabel,
+  pct,
+  previousMatch,
+  rtDeltaText,
+  secs,
+  switchCostText,
+} from "./copy";
 import type { CardFormat } from "./shareCard";
 import { SetupSheet } from "./SetupScreen";
 
@@ -181,129 +194,146 @@ export function ResultsScreen() {
         {bestList.length ? ` New personal best: ${bestList.join(", ")}.` : ""}
       </p>
 
-      <div className="stats">
-        <div className="stat">
-          <span className="stat-label">Duration</span>
-          <span className="stat-value num">{minutesLabel(result.durationSeconds)}</span>
-        </div>
-        <div className="stat">
-          <span className="stat-label">Challenges</span>
-          <span className="stat-value num">{result.challenges}</span>
-          <span className="stat-delta">Best streak {result.bestStreak}</span>
-        </div>
-        <div className="stat">
-          <span className="stat-label">
-            Response time <span className="stat-sub">correct answers</span>
-          </span>
-          <span className="stat-value num">{secs(result.avgRt)}</span>
-          {d.rtSeconds !== null && (
-            <span className="stat-delta">
-              {rtDir && <DeltaGlyph direction={rtDir} />}
-              {rtDeltaText(d.rtSeconds)}
-            </span>
-          )}
-        </div>
-        {switchCost && (
-          <div className="stat">
-            <span className="stat-label">Switch cost</span>
-            <span className="stat-delta" style={{ gridColumn: "1 / -1" }}>
-              {switchCost}
-            </span>
+      {result.guided ? (
+        <GuidedNext />
+      ) : (
+        <>
+          <div className="stats">
+            <div className="stat">
+              <span className="stat-label">Duration</span>
+              <span className="stat-value num">{minutesLabel(result.durationSeconds)}</span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">Challenges</span>
+              <span className="stat-value num">{result.challenges}</span>
+              <span className="stat-delta">Best streak {result.bestStreak}</span>
+            </div>
+            <div className="stat">
+              <span className="stat-label">
+                Response time <span className="stat-sub">correct answers</span>
+              </span>
+              <span className="stat-value num">{secs(result.avgRt)}</span>
+              {d.rtSeconds !== null && (
+                <span className="stat-delta">
+                  {rtDir && <DeltaGlyph direction={rtDir} />}
+                  {rtDeltaText(d.rtSeconds)}
+                </span>
+              )}
+            </div>
+            {switchCost && (
+              <div className="stat">
+                <span className="stat-label">Switch cost</span>
+                <span className="stat-delta" style={{ gridColumn: "1 / -1" }}>
+                  {switchCost}
+                </span>
+              </div>
+            )}
+            {breakdown.length >= 2 && (
+              <div className="stat breakdown">
+                <span className="stat-label">By mode</span>
+                <ul className="breakdown-list" style={{ gridColumn: "1 / -1" }}>
+                  {breakdown.map((b) => (
+                    <li key={b.mode}>
+                      <span>{MODE_INFO[b.mode].label}</span>
+                      <span className="breakdown-bar" aria-hidden="true">
+                        <span style={{ width: `${Math.round(b.accuracy * 100)}%` }} />
+                      </span>
+                      <span className="num">{Math.round(b.accuracy * 100)}%</span>
+                      <span className="num">{secs(b.avgRt)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {!result.daily && !result.guided && !result.practice && (result.activity === "still" || cost || nudge) && (
+              <div className="stat">
+                <span className="stat-label">Motion cost</span>
+                <span className="stat-delta" style={{ gridColumn: "1 / -1" }}>
+                  {result.activity === "still"
+                    ? `Seated baseline saved for ${MODE_INFO[result.requestedMode].label}. Moving sessions will compare against it.`
+                    : cost
+                      ? motionCostText(cost)
+                      : `Play ${MODE_INFO[result.requestedMode].label} once seated to see what moving costs you.`}
+                </span>
+              </div>
+            )}
           </div>
-        )}
-        {breakdown.length >= 2 && (
-          <div className="stat breakdown">
-            <span className="stat-label">By mode</span>
-            <ul className="breakdown-list" style={{ gridColumn: "1 / -1" }}>
-              {breakdown.map((b) => (
-                <li key={b.mode}>
-                  <span>{MODE_INFO[b.mode].label}</span>
-                  <span className="breakdown-bar" aria-hidden="true">
-                    <span style={{ width: `${Math.round(b.accuracy * 100)}%` }} />
-                  </span>
-                  <span className="num">{Math.round(b.accuracy * 100)}%</span>
-                  <span className="num">{secs(b.avgRt)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        {!result.daily && !result.guided && !result.practice && (result.activity === "still" || cost || nudge) && (
-          <div className="stat">
-            <span className="stat-label">Motion cost</span>
-            <span className="stat-delta" style={{ gridColumn: "1 / -1" }}>
-              {result.activity === "still"
-                ? `Seated baseline saved for ${MODE_INFO[result.requestedMode].label}. Moving sessions will compare against it.`
-                : cost
-                  ? motionCostText(cost)
-                  : `Play ${MODE_INFO[result.requestedMode].label} once seated to see what moving costs you.`}
-            </span>
-          </div>
-        )}
-      </div>
 
-      {(askEffort || askMood) && (
-        <div className="checkin" role="group" aria-label="Check-in">
-          {askEffort && (
-            <>
-              <p id="rpe-label" className="checkin-label">
-                Effort <span className="checkin-hint">1 very easy, 10 max</span>
-              </p>
-              <div className="rpe">
-                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                  <button
-                    key={n}
-                    className="rpe-btn num"
-                    aria-pressed={result.rpe === n}
-                    aria-label={`${n}${RPE_ANCHORS[n] ? `, ${RPE_ANCHORS[n]}` : ""}`}
-                    onClick={() => updateResult(result.id, { rpe: n })}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-            </>
+          {(askEffort || askMood) && (
+            <div className="checkin" role="group" aria-label="Check-in">
+              {askEffort && (
+                <>
+                  <p id="rpe-label" className="checkin-label">
+                    Effort <span className="checkin-hint">1 very easy, 10 max</span>
+                  </p>
+                  <div className="rpe">
+                    {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                      <button
+                        key={n}
+                        className="rpe-btn num"
+                        aria-pressed={result.rpe === n}
+                        aria-label={`${n}${RPE_ANCHORS[n] ? `, ${RPE_ANCHORS[n]}` : ""}`}
+                        onClick={() => updateResult(result.id, { rpe: n })}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              {askMood && (
+                <>
+                  <p id="mood-after-label" className="checkin-label" style={{ marginTop: askEffort ? 12 : 0 }}>
+                    Mood now
+                  </p>
+                  <div className="mood">
+                    {MOODS.map((m, i) => (
+                      <button
+                        key={m}
+                        className="rpe-btn"
+                        aria-pressed={result.moodAfter === i + 1}
+                        onClick={() => updateResult(result.id, { moodAfter: i + 1 })}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           )}
-          {askMood && (
-            <>
-              <p id="mood-after-label" className="checkin-label" style={{ marginTop: askEffort ? 12 : 0 }}>
-                Mood now
-              </p>
-              <div className="mood">
-                {MOODS.map((m, i) => (
-                  <button key={m} className="rpe-btn" aria-pressed={result.moodAfter === i + 1} onClick={() => updateResult(result.id, { moodAfter: i + 1 })}>
-                    {m}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+        </>
       )}
-
       <div className="grow" />
       <div className="stack gap-8" style={{ marginTop: 20 }}>
+        {result.guided && (
+          <button className="btn-primary" onClick={() => requestStart()}>
+            Start a full session
+          </button>
+        )}
         <button
-          className="btn-primary"
+          className={result.guided ? "btn-text guided-home" : "btn-primary"}
           onClick={() => {
             if (result.guided || result.daily) go("home");
             else if (result.practice) go("insights");
             else requestStart();
           }}
         >
-          {result.guided || result.daily ? "Continue" : result.practice ? "Back to Insights" : "Go again"}
+          {result.guided ? "Go to Home" : result.daily ? "Continue" : result.practice ? "Back to Insights" : "Go again"}
         </button>
-        <div className="btn-row spread">
-          <button className="btn-text" onClick={() => setSheet(true)}>
-            Change
-          </button>
-          <button className="btn-text" onClick={() => setShareSheet(true)} disabled={shareState === "busy"}>
-            Share
-          </button>
-          <button className="btn-text" onClick={() => go("home")}>
-            Home
-          </button>
-        </div>
+        {!result.guided && (
+          <div className="btn-row spread">
+            <button className="btn-text" onClick={() => setSheet(true)}>
+              Change
+            </button>
+            <button className="btn-text" onClick={() => setShareSheet(true)} disabled={shareState === "busy"}>
+              Share
+            </button>
+            <button className="btn-text" onClick={() => go("home")}>
+              Home
+            </button>
+          </div>
+        )}
       </div>
       {shareState !== "idle" && shareState !== "busy" && (
         <p className="t-14" role="status" style={{ marginTop: 6 }}>
@@ -337,5 +367,26 @@ export function ResultsScreen() {
         </Sheet>
       )}
     </main>
+  );
+}
+
+/** After the first round: what the app does next, and the three ways in. */
+function GuidedNext() {
+  const setup = useStore((s) => s.setup);
+  return (
+    <div className="guided-next">
+      <p className="t-17">Your levels adapt as you play. Every mode starts gentle and finds your pace within a dozen answers.</p>
+      <ul>
+        <li>
+          <strong>Start</strong> plays your preset: {presetLine(setup.activity, setup.mode, setup.duration)}. Change it any time on Home.
+        </li>
+        <li>
+          <strong>The Daily</strong> is 3 minutes, the same for everyone. Share it and challenge a friend.
+        </li>
+        <li>
+          <strong>Play once seated</strong> and Results will show what moving costs your thinking.
+        </li>
+      </ul>
+    </div>
   );
 }

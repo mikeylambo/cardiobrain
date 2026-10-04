@@ -21,6 +21,8 @@ test("record app preview", async ({ page }, info) => {
   await page.getByRole("button", { name: /Bike/ }).waitFor();
   await page.waitForTimeout(1200);
   await page.getByRole("button", { name: /Bike/ }).click();
+  await page.waitForTimeout(900);
+  await page.getByRole("button", { name: "Start a 30-second round" }).click();
   await page.locator(".countdown").waitFor({ state: "detached" });
   for (let i = 0; i < 80 && !(await page.locator(".results").count()); i++) {
     // Mostly right, the odd slip, at a human pace.

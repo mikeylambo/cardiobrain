@@ -27,6 +27,8 @@ for (const { w, h } of SIZES) {
       await page.goto("/");
       await snap(page, `${tag}-01-welcome`);
       await page.getByRole("button", { name: /Stairs/ }).click();
+      await snap(page, `${tag}-01b-setup`);
+      await page.getByRole("button", { name: "Start a 30-second round" }).click();
       await snap(page, `${tag}-02-countdown`, 1200);
       await page.locator(".countdown").waitFor({ state: "detached" });
       await snap(page, `${tag}-03-guided-first`, 700);

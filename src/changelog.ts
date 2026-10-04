@@ -3,6 +3,15 @@ export const APP_VERSION = __APP_VERSION__;
 /** Newest first. Plain sentences, the way Settings shows them. */
 export const CHANGELOG: Array<{ version: string; items: string[] }> = [
   {
+    version: "2.6",
+    items: [
+      "A new welcome: pick your activity, say where your phone is and whether you'll listen, then a 30-second round.",
+      "After the first round, a short guide to Start, the Daily and the seated baseline.",
+      "Look around first: skip the intro and explore.",
+      "Replay the intro any time from Settings.",
+    ],
+  },
+  {
     version: "2.5",
     items: [
       "Challenge a friend: a Daily result shares a link that opens the same challenge with your score to beat.",

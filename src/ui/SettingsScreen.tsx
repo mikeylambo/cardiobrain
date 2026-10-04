@@ -42,6 +42,7 @@ export function SettingsScreen() {
   const importData = useStore((s) => s.importData);
   const markBackedUp = useStore((s) => s.markBackedUp);
   const [confirm, setConfirm] = React.useState(false);
+  const replayIntro = useStore((s) => s.replayIntro);
   const [about, setAbout] = React.useState<"new" | "report" | null>(null);
   const [tested, setTested] = React.useState(false);
   const [importNote, setImportNote] = React.useState<string | null>(null);
@@ -315,6 +316,9 @@ export function SettingsScreen() {
         </button>
         <button className="btn-text" style={{ alignSelf: "flex-start" }} onClick={() => setAbout("report")}>
           Report a problem
+        </button>
+        <button className="btn-text" style={{ alignSelf: "flex-start" }} onClick={replayIntro}>
+          Replay the intro
         </button>
         <p className="t-14" style={{ color: "var(--muted)", marginTop: 8 }}>
           <a href="/privacy" style={{ color: "inherit" }}>
