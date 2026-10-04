@@ -37,7 +37,7 @@ export const switchMode: ModeDefinition = {
   View: ({ challenge, onAnswer }) => {
     const data = challenge.data as { rule:string; word:string; inkClass:string };
     return (
-      <div className="mode-view">
+      <div className="mode-view switch-mode">
         <div className="rule-banner">{data.rule}</div>
         <motion.div key={challenge.id} initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} className={`switch-stimulus ${data.inkClass}`}>
           {data.word}
