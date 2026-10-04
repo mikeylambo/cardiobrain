@@ -6,7 +6,6 @@ import { onStorageFailure } from "./storage";
 import { useStore, type Screen } from "./state/store";
 import { Mark } from "./ui/components";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
-import { loadRhymeData } from "./modes/generate/rhyme";
 import { MoodSheet } from "./ui/MoodSheet";
 import { startFromLink } from "./platform/links";
 import { HomeScreen } from "./ui/HomeScreen";
@@ -35,9 +34,6 @@ export function App() {
     void boot().then(() => {
       void hideSplash();
       startFromLink();
-      // Warm the rhyme words while nothing else is happening, so the first Rhyme or Mix starts instantly.
-      const idle = (cb: () => void) => (typeof requestIdleCallback === "function" ? requestIdleCallback(cb, { timeout: 8000 }) : setTimeout(cb, 3000));
-      idle(() => void loadRhymeData().catch(() => undefined));
     });
     onStorageFailure(() => setStorageNotice(true));
     const unlock = () => unlockAudio();

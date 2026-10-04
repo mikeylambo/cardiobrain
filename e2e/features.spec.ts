@@ -158,7 +158,7 @@ test("seated baseline then a moving session shows motion cost on Results", async
   await prime(page, { mode: "numbers", activity: "still", seconds: 10 });
   await page.goto("/");
   await startFromHome(page);
-  for (let i = 0; i < 40 && !(await page.locator(".results").count()); i++) {
+  for (const until = Date.now() + 25_000; Date.now() < until && !(await page.locator(".results").count());) {
     await answerCorrectly(page);
     await page.waitForTimeout(250);
   }
@@ -167,7 +167,7 @@ test("seated baseline then a moving session shows motion cost on Results", async
   await page.getByRole("radio", { name: "Run" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Start" }).click();
   await page.locator(".countdown").waitFor({ state: "detached" });
-  for (let i = 0; i < 40 && !(await page.locator(".results").count()); i++) {
+  for (let i = 0, until = Date.now() + 25_000; Date.now() < until && !(await page.locator(".results").count()); i++) {
     if (i % 4 === 0) await tapRandomTile(page);
     else await answerCorrectly(page);
     await page.waitForTimeout(400);

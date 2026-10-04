@@ -43,7 +43,7 @@ Calls made during the builds, newest first. Each one can be revisited; the reaso
 
 - **Heart rate:** the standard GATT Heart Rate service. Zones are shares of max heart rate (set in Settings). Zones 3, 4 and 5 widen answer windows by 1.1×, 1.25× and 1.4×. The daily challenge ignores heart rate.
 - **Health:** the plugin can't write workouts, so sessions are written as Mindful Minutes. Off by default.
-- **Code splitting:** History, Insights, Settings and the share card are separate chunks. The rhyme words preload on idle. The main bundle is about 106 KB gzipped.
+- **Code splitting:** History, Insights, Settings and the share card are separate chunks. The main bundle is about 106 KB gzipped. An idle preload of the rhyme words was tried and removed: building the index is a half-second main-thread task, it cost Lighthouse about 8 performance points, and the service worker already precaches the file. The index builds during the 3-second countdown instead.
 - **CI:** GitHub Actions runs the full gated build and e2e suite on Chromium, plus a real WebKit (Safari engine) job on macOS. That job is the first true Safari coverage; until now iPhone was emulated in Chromium.
 
 ## v2 (October 2026)
