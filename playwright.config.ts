@@ -8,6 +8,7 @@ const launchOptions = existsSync(local) ? { executablePath: local } : {};
 
 export default defineConfig({
   testDir: "./e2e",
+  outputDir: process.env.PW_OUT ?? "test-results",
   timeout: 120_000,
   fullyParallel: true,
   workers: process.env.CI ? 2 : 4,

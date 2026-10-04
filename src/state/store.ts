@@ -552,3 +552,8 @@ export const useStore = create<State>((set, get) => {
     clearError: () => set({ error: null }),
   };
 });
+
+// Test seam: e2e scripts on localhost can read the current challenge to answer it correctly.
+if (typeof location !== "undefined" && ["localhost", "127.0.0.1"].includes(location.hostname)) {
+  (globalThis as unknown as { __cbStore?: typeof useStore }).__cbStore = useStore;
+}

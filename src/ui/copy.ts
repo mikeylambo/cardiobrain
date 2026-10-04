@@ -34,9 +34,9 @@ export function previousMatch(history: SessionResult[], result: SessionResult): 
   );
 }
 
-export function sessionNoun(r: Pick<SessionResult, "activity" | "requestedMode">): string {
-  const mode = r.requestedMode === "mix" ? "" : ` ${MODE_INFO[r.requestedMode].label}`;
-  return `${ACTIVITY_NOUN[r.activity]}${mode} session`;
+/** "bike session". The mode is already in the kicker above the headline. */
+export function sessionNoun(r: Pick<SessionResult, "activity">): string {
+  return `${ACTIVITY_NOUN[r.activity]} session`;
 }
 
 export interface Deltas {

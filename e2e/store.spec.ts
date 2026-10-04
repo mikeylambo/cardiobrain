@@ -2,7 +2,7 @@
 // headline set in Archivo.  npx playwright test e2e/store.spec.ts --project iphone-14
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { test, type Page } from "@playwright/test";
-import { play, prime, seedHistory, startFromHome, tapRandomTile, type Activity, type Mode } from "./helpers";
+import { answerCorrectly, prime, seedHistory, startFromHome, tapRandomTile, type Activity, type Mode } from "./helpers";
 
 const OUT = "store/screenshots";
 const TARGETS = [
@@ -48,24 +48,30 @@ const SHOTS: Shot[] = [
       await page.waitForTimeout(80);
     },
   },
-  { name: "3-switch", caption: "The rule changes. Keep up.", activity: "bike", capture: inSession("switch", "bike", 3) },
+  { name: "3-switch", caption: "The rule changes. Keep\u00a0up.", activity: "bike", capture: inSession("switch", "bike", 3) },
   { name: "4-rhyme", caption: "Train your ear, not your spelling.", activity: "run", capture: inSession("rhyme", "run", 1) },
   {
     name: "5-results",
     caption: "See yourself get sharper.",
     activity: "walk",
     capture: async (page) => {
-      await prime(page, { mode: "numbers", activity: "walk", seconds: 6 });
+      await prime(page, { mode: "numbers", activity: "walk", seconds: 14 });
       await page.goto("/");
+      await seedHistory(page, 4);
       await startFromHome(page);
-      await play(page, 9000);
+      // Mostly right, one slip: a realistic good session.
+      for (let i = 0; i < 40 && !(await page.locator(".results").count()); i++) {
+        if (i === 5) await tapRandomTile(page);
+        else await answerCorrectly(page);
+        await page.waitForTimeout(650 + Math.random() * 300);
+      }
       await page.locator(".results").waitFor();
       await page.waitForTimeout(1600);
     },
   },
   {
     name: "6-home",
-    caption: "Offline. No account. Yours.",
+    caption: "Offline. No\u00a0account. Yours.",
     activity: "bike",
     capture: async (page) => {
       await prime(page, { mode: "mix", activity: "bike" });
@@ -90,12 +96,12 @@ for (const shot of SHOTS) {
       mkdirSync(`${OUT}/${t.dir}`, { recursive: true });
       const ctx = await browser.newContext({ viewport: { width: t.w, height: t.h }, deviceScaleFactor: 1 });
       const p = await ctx.newPage();
-      const phoneW = Math.round(t.w * 0.78);
+      const phoneW = Math.round(t.w * 0.74);
       await p.setContent(`<!doctype html><html><head><style>
         @font-face { font-family: Archivo; src: url(data:font/woff2;base64,${font}) format("woff2"); font-weight: 100 900; font-stretch: 62% 125%; }
         html, body { margin: 0; width: ${t.w}px; height: ${t.h}px; overflow: hidden; background: ${bg}; color: ${fg}; font-family: Archivo; }
-        h1 { margin: 0; padding: ${Math.round(t.h * 0.05)}px ${Math.round(t.w * 0.08)}px 0; font-stretch: 62%; font-weight: 800; font-size: ${Math.round(t.w * 0.105)}px; line-height: .95; letter-spacing: -0.01em; }
-        .phone { position: absolute; left: 50%; bottom: -${Math.round(t.h * 0.04)}px; transform: translateX(-50%); width: ${phoneW}px; border-radius: ${Math.round(phoneW * 0.11)}px; overflow: hidden; border: ${Math.round(t.w * 0.012)}px solid #16181D; background: #16181D; }
+        h1 { margin: 0; padding: ${Math.round(t.h * 0.045)}px ${Math.round(t.w * 0.08)}px 0; font-stretch: 62%; font-weight: 800; font-size: ${Math.round(t.w * 0.1)}px; line-height: .95; letter-spacing: -0.01em; text-wrap: balance; }
+        .phone { position: absolute; left: 50%; bottom: ${Math.round(t.h * 0.035)}px; transform: translateX(-50%); width: ${phoneW}px; border-radius: ${Math.round(phoneW * 0.11)}px; overflow: hidden; border: ${Math.round(t.w * 0.012)}px solid #16181D; background: #16181D; }
         .phone img { display: block; width: 100%; }
       </style></head><body><h1>${shot.caption}</h1><div class="phone"><img src="data:image/png;base64,${raw}"></div></body></html>`);
       await p.evaluate(() => document.fonts.ready);

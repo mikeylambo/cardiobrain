@@ -23,7 +23,7 @@ interface Pools {
 let pools: Pools | null = null;
 let loading: Promise<void> | null = null;
 
-const isCommon = (e: WordEntry) => e.freq >= 5 && e.word.length <= MAX_LETTERS;
+const isCommon = (e: WordEntry) => e.freq >= 5 && e.word.length <= MAX_LETTERS && e.word.length >= 3;
 const isUsable = (e: WordEntry) => e.freq >= 5 && e.word.length <= MAX_LETTERS && e.word.length >= 3;
 
 function dedupeSounds(list: WordEntry[]): WordEntry[] {

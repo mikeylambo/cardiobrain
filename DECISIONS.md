@@ -60,6 +60,8 @@ Calls made during the builds, newest first. Each one can be revisited; the reaso
 
 - **Playwright:** the iPhone 14 profile is emulated in Chromium (viewport, pixel ratio, touch and user agent), because WebKit is not installed on the build machine. Pixel 7 runs as itself. The suites use the machine's preinstalled Chromium when present.
 - **Short test sessions:** `sessionStorage['cb-test-duration-seconds']` sets the session length, honoured on localhost only.
+- **Correct-answer test hook:** on localhost only, the store is exposed as `globalThis.__cbStore`, so the store-screenshot script can answer correctly. Production builds served from any other host never expose it.
+- **Results at release:** 28 unit and property tests; 22 e2e flow and floor tests on iPhone 14 and Pixel 7; 12 of 12 three-minute sessions (6 modes × 2 devices); Lighthouse mobile 99 / 100 / 100 / 100; main JS 97 KB gzipped (budget 200 KB), with the lazy rhyme list at 70 KB gzipped on top.
 - **"Under 15 seconds"** is measured from page load to the first answerable challenge (about 4–5 seconds). The guided round itself lasts 30 seconds, so reaching Results takes longer by design.
 
 ## v1

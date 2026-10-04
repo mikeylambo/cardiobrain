@@ -51,7 +51,7 @@ export const AddSquareIcon = () => (
 );
 
 export const DeltaGlyph = ({ direction }: { direction: "up" | "down" | "flat" }) => (
-  <svg viewBox="0 0 12 12" aria-hidden="true">
+  <svg viewBox="0 0 12 12" width="12" height="12" style={{ flex: "none" }} aria-hidden="true">
     {direction === "up" && <path d="M6 1.5L11 10H1z" fill="currentColor" />}
     {direction === "down" && <path d="M6 10.5L1 2h10z" fill="currentColor" />}
     {direction === "flat" && <rect x="1" y="5" width="10" height="2.4" fill="currentColor" />}

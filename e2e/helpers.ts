@@ -114,3 +114,25 @@ export async function pauseAndResume(page: Page) {
   await page.getByRole("button", { name: "Resume" }).click();
   await page.locator(".countdown").waitFor({ state: "detached", timeout: 10000 });
 }
+
+/** Answer the current challenge correctly (localhost test seam). Recall taps its sequence in order. */
+export async function answerCorrectly(page: Page): Promise<boolean> {
+  const answer = await page.evaluate(() => {
+    const store = (
+      globalThis as unknown as { __cbStore?: { getState: () => { active: { current: { correctAnswer: string } | null; presentedAt: number | null } | null } } }
+    ).__cbStore;
+    const a = store?.getState().active;
+    return a?.current && a.presentedAt !== null ? a.current.correctAnswer : null;
+  });
+  if (!answer || answer === "withhold") return false;
+  for (const id of answer.split(" ")) {
+    const tile = page.locator(`.tile[data-answer="${id}"]:not([disabled])`);
+    if (!(await tile.count())) return false;
+    const box = await tile.boundingBox();
+    if (!box) return false;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.up();
+  }
+  return true;
+}
