@@ -1,49 +1,60 @@
-import { motion } from "framer-motion";
-import type { Activity, DurationChoice } from "../engine/types";
-import { CORE_MODE_IDS, MODE_REGISTRY } from "../modes/registry";
-import { getDurationLabel, useCardioStore } from "../state/store";
+import type { DurationChoice } from "../engine/types";
+import { MODE_CHOICES, MODE_INFO } from "../modes/registry";
+import { useStore } from "../state/store";
+import { Segmented, Sheet } from "./components";
+import { ACTIVITIES, ACTIVITY_LABEL } from "./copy";
+import { unlockAudio } from "../audio/synth";
 
-const activities: Array<{ id: Activity; label: string; copy: string }> = [
-  { id: "walk", label: "Walk", copy: "Plenty of attention to spare." },
-  { id: "bike", label: "Bike", copy: "Steady rhythm, rolling pace." },
-  { id: "stairs", label: "Stairs", copy: "Extra room for heavy breathing." },
-  { id: "run", label: "Run", copy: "Fast legs, simpler choices." }
+const DURATIONS: Array<{ value: DurationChoice; label: string }> = [
+  { value: 10, label: "10 min" },
+  { value: 20, label: "20 min" },
+  { value: 30, label: "30 min" },
+  { value: "open", label: "Open" },
 ];
-const durations: DurationChoice[] = [10, 20, 30, "open"];
-const wordsMode = MODE_REGISTRY.rhyme;
 
-export function SetupScreen({ onBack }: { onBack: () => void }) {
-  const setup = useCardioStore((s) => s.setup);
-  const setSetup = useCardioStore((s) => s.setSetup);
-  const start = useCardioStore((s) => s.startCountdown);
-
+/** Activity, mode, duration. A sheet over the current screen, never a separate page. */
+export function SetupSheet({ onClose }: { onClose: () => void }) {
+  const setup = useStore((s) => s.setup);
+  const updateSetup = useStore((s) => s.updateSetup);
+  const startSession = useStore((s) => s.startSession);
   return (
-    <main className="app-frame screen-stack">
-      <div className="topbar"><button className="icon-button" onClick={onBack} aria-label="Back">←</button><div className="eyebrow">SESSION SETUP</div><div style={{ width: 44 }} /></div>
-      <div><h1 className="section-title">Build the<br />right session.</h1><p className="body-copy">Your activity changes the timing, not the goal.</p></div>
-
-      <section><div className="eyebrow" style={{ marginBottom: 10 }}>ACTIVITY</div><div className="activity-grid">
-        {activities.map(item => <button key={item.id} className={`choice-card ${setup.activity === item.id ? "selected" : ""}`} aria-pressed={setup.activity === item.id} onClick={() => setSetup({ activity: item.id })}>
-          <div style={{ fontSize: 22, marginBottom: 14 }} aria-hidden="true">{item.id === "walk" ? "↟" : item.id === "bike" ? "◒" : item.id === "stairs" ? "⇧" : "⌁"}</div>
-          <div className="choice-title">{item.label}</div><div className="choice-copy">{item.copy}</div>
-        </button>)}
-      </div></section>
-
-      <section><div className="eyebrow" style={{ marginBottom: 10 }}>MODE</div><div className="mode-grid">
-        <button className={`mode-card ${setup.mode === "mix" ? "selected" : ""}`} aria-pressed={setup.mode === "mix"} onClick={() => setSetup({ mode: "mix" })}><strong>Mix</strong><p>Rotate through every core mode.</p></button>
-        {CORE_MODE_IDS.map(id => { const mode = MODE_REGISTRY[id]; return <button key={id} className={`mode-card ${setup.mode === id ? "selected" : ""}`} aria-pressed={setup.mode === id} onClick={() => setSetup({ mode: id })}><strong>{mode.label}</strong><p>{mode.description}</p></button>; })}
-      </div></section>
-
-      <section><div className="eyebrow" style={{ marginBottom: 10 }}>WORDS</div><div className="word-mode-wrap">
-        <button className={`mode-card word-mode-card ${setup.mode === "rhyme" ? "selected" : ""}`} aria-pressed={setup.mode === "rhyme"} onClick={() => setSetup({ mode: "rhyme" })}>
-          <div className="mode-card-kicker">LANGUAGE · TIMING</div>
-          <strong>{wordsMode.label}</strong><p>{wordsMode.description}</p>
+    <Sheet title="Your session" onClose={onClose}>
+      <p className="group-label" id="act-label">
+        Activity
+      </p>
+      <Segmented
+        label="Activity"
+        cols={4}
+        value={setup.activity}
+        onChange={(activity) => updateSetup({ activity })}
+        options={ACTIVITIES.map((a) => ({ value: a, label: ACTIVITY_LABEL[a], activity: a }))}
+      />
+      <p className="group-label">Mode</p>
+      <div className="mode-rows" role="radiogroup" aria-label="Mode">
+        {MODE_CHOICES.map((m) => (
+          <button key={m} role="radio" aria-checked={setup.mode === m} className="mode-row" onClick={() => updateSetup({ mode: m })}>
+            <strong>{MODE_INFO[m].label}</strong>
+            <span>{MODE_INFO[m].description}</span>
+          </button>
+        ))}
+      </div>
+      <p className="group-label">Duration</p>
+      <Segmented label="Duration" cols={4} value={setup.duration} onChange={(duration) => updateSetup({ duration })} options={DURATIONS} />
+      <div className="stack gap-8" style={{ marginTop: 24 }}>
+        <button
+          className="btn-primary"
+          onClick={() => {
+            unlockAudio();
+            onClose();
+            void startSession();
+          }}
+        >
+          Start
         </button>
-      </div></section>
-
-      <section><div className="eyebrow" style={{ marginBottom: 10 }}>DURATION</div><div className="duration-row">{durations.map(value => <button key={String(value)} className={`chip ${setup.duration === value ? "selected" : ""}`} aria-pressed={setup.duration === value} onClick={() => setSetup({ duration: value })}>{getDurationLabel(value)}</button>)}</div></section>
-
-      <motion.button whileTap={{ scale: 0.985 }} className="action-primary" onClick={start}>Continue to countdown</motion.button>
-    </main>
+        <button className="btn-text" style={{ alignSelf: "center" }} onClick={onClose}>
+          Done
+        </button>
+      </div>
+    </Sheet>
   );
 }

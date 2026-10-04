@@ -7,6 +7,7 @@ Required screenshots:
 Home, Setup, Countdown, Numbers, Switch, React, Recall, Rhyme Rush, Pause, Results, History, session detail, Settings.
 
 Required interaction review:
+
 - run a real short session in every mode
 - verify the stimulus is visible without scrolling
 - verify answer pads are one-handed and at least 88px high
@@ -20,6 +21,7 @@ Required interaction review:
 - verify offline navigation still opens the app shell
 
 Reject before done if:
+
 - text truncates unexpectedly
 - session scrolls
 - a mode generates an unsolvable round

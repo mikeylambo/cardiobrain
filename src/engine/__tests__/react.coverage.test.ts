@@ -1,22 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { mulberry32 } from "../rng";
-import { reactMode } from "../../modes/react";
+import { generateReact, WITHHOLD, ZONES } from "../../modes/generate/react";
 
-describe("React answer coverage", () => {
-  it("always exposes every visible zone plus HOLD", () => {
-    const expected = new Set(["zone-0","zone-1","zone-2","zone-3","hold"]);
-    for (let level = 1; level <= 20; level += 1) {
-      for (let seed = 0; seed < 80; seed += 1) {
-        const challenge = reactMode.generate(
-          level,
-          mulberry32(seed),
-          { activity: "walk", bias: "standard", seed, trialIndex: seed }
-        );
-        expect(new Set(challenge.options.map((option) => option.id))).toEqual(expected);
-        expect(expected.has(challenge.correctAnswer)).toBe(true);
-        if (challenge.data.noGo) expect(challenge.correctAnswer).toBe("hold");
-        else expect(challenge.correctAnswer).toMatch(/^zone-[0-3]$/);
+const ctx = (i: number) => ({ activity: "run" as const, bias: "standard" as const, seed: i, trialIndex: i, modeTrialIndex: i });
+
+describe("React", () => {
+  it("2,000 seeds x levels 1-20: one target, a tile for it, decoys elsewhere", () => {
+    const seen = new Set<string>();
+    for (let level = 1; level <= 20; level++) {
+      for (let seed = 0; seed < 2000; seed++) {
+        const c = generateReact(level, mulberry32(seed * 7 + level), ctx(seed));
+        const { zone, noGo, decoy } = c.data as { zone: string; noGo: boolean; decoy: string | null };
+        expect(c.options.map((o) => o.id)).toEqual([...ZONES]);
+        expect(c.correctAnswer).toBe(noGo ? WITHHOLD : zone);
+        expect(c.timeoutMs).toBeGreaterThan(0);
+        if (decoy) expect(decoy).not.toBe(zone);
+        if (level < 4) expect(noGo).toBe(false);
+        seen.add(zone);
       }
     }
+    expect(seen.size).toBe(4);
   });
 });

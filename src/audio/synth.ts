@@ -1,42 +1,91 @@
-let context: AudioContext | null = null;
+// All sound is synthesized: nothing to download, nothing to cache.
+// Everything routes through one master gain and a compressor so the chime, the low note
+// and the chords land at the same perceived loudness, with a conservative peak for earbuds.
 
-function getContext(): AudioContext | null {
+let ctx: AudioContext | null = null;
+let master: GainNode | null = null;
+let enabled = true;
+
+export function setSoundEnabled(on: boolean): void {
+  enabled = on;
+}
+
+function audio(): { ctx: AudioContext; out: AudioNode } | null {
   if (typeof window === "undefined") return null;
-  if (!context) {
-    const Ctor = window.AudioContext ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!ctx) {
+    const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctor) return null;
-    context = new Ctor();
+    try {
+      ctx = new Ctor();
+    } catch {
+      return null;
+    }
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -24;
+    comp.knee.value = 12;
+    comp.ratio.value = 6;
+    master = ctx.createGain();
+    master.gain.value = 0.5;
+    master.connect(comp).connect(ctx.destination);
   }
-  return context;
+  return master ? { ctx, out: master } : null;
 }
 
-export async function unlockAudio(): Promise<void> {
-  const ctx = getContext();
-  if (!ctx) return;
-  if (ctx.state === "suspended") await ctx.resume();
+/** iOS Safari only starts audio from inside a user gesture. Call on the first tap. */
+export function unlockAudio(): void {
+  const a = audio();
+  if (a && a.ctx.state === "suspended") void a.ctx.resume().catch(() => undefined);
 }
 
-function tone(frequency: number, duration: number, gainAmount: number, delay = 0): void {
-  const ctx = getContext();
-  if (!ctx) return;
-  const start = ctx.currentTime + delay;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = "sine";
-  osc.frequency.setValueAtTime(frequency, start);
-  gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(gainAmount, start + 0.012);
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-  osc.connect(gain).connect(ctx.destination);
-  osc.start(start);
-  osc.stop(start + duration + 0.02);
+function tone(freq: number, dur: number, level: number, delay = 0, type: OscillatorType = "sine"): void {
+  if (!enabled) return;
+  const a = audio();
+  if (!a || a.ctx.state !== "running") return;
+  const t = a.ctx.currentTime + delay;
+  const osc = a.ctx.createOscillator();
+  const gain = a.ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t);
+  // Lower notes need more energy to sound as loud; scale level against a 660Hz reference.
+  const comp = Math.min(1.6, Math.sqrt(660 / freq));
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(level * comp, t + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  osc.connect(gain).connect(a.out);
+  osc.start(t);
+  osc.stop(t + dur + 0.03);
 }
+
+const RECALL_NOTES: Record<string, number> = {
+  circle: 523.25,
+  square: 587.33,
+  triangle: 659.25,
+  diamond: 783.99,
+  star: 880,
+  cross: 987.77,
+};
 
 export const sfx = {
-  countdown: (n: number) => tone(n === 1 ? 520 : 420, 0.08, 0.045),
-  correct: () => { tone(660, 0.08, 0.04); tone(880, 0.12, 0.035, 0.07); },
-  wrong: () => tone(210, 0.11, 0.028),
-  milestone: () => { tone(523, 0.12, 0.045); tone(659, 0.14, 0.04, 0.09); tone(784, 0.18, 0.036, 0.18); },
-  rule: () => tone(330, 0.06, 0.03),
-  done: () => { tone(440, 0.12, 0.04); tone(660, 0.18, 0.035, 0.1); tone(990, 0.22, 0.03, 0.2); }
+  tick: () => tone(740, 0.06, 0.18, 0, "triangle"),
+  go: () => tone(988, 0.14, 0.2, 0, "triangle"),
+  correct: () => {
+    tone(784, 0.09, 0.2);
+    tone(1046.5, 0.14, 0.18, 0.07);
+  },
+  wrong: () => tone(196, 0.16, 0.22, 0, "triangle"),
+  streak: (n: number) => {
+    const notes = n >= 25 ? [784, 988, 1175, 1568] : n >= 10 ? [784, 988, 1175] : [784, 1046.5];
+    notes.forEach((f, i) => tone(f, 0.16, 0.17, i * 0.08));
+  },
+  switch: () => {
+    tone(440, 0.07, 0.18, 0, "square");
+    tone(330, 0.09, 0.14, 0.07, "square");
+  },
+  symbol: (shape: string) => tone(RECALL_NOTES[shape] ?? 660, 0.16, 0.16),
+  count: () => tone(1200, 0.025, 0.08, 0, "triangle"),
+  complete: () => {
+    [523.25, 659.25, 783.99].forEach((f) => tone(f, 0.5, 0.12));
+    tone(1046.5, 0.6, 0.1, 0.12);
+  },
+  transition: () => tone(659.25, 0.12, 0.16, 0, "triangle"),
 };

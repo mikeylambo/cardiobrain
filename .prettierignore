@@ -1,0 +1,8 @@
+dist
+ios
+android
+src/data
+public
+docs/screens
+store
+package-lock.json

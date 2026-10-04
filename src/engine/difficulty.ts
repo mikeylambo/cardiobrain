@@ -4,13 +4,13 @@ export const ACTIVITY_RESPONSE_MULTIPLIER: Record<Activity, number> = {
   walk: 1,
   bike: 1.1,
   stairs: 1.5,
-  run: 1.3
+  run: 1.3,
 };
 
 const BIAS_MULTIPLIER: Record<DifficultyBias, number> = {
   gentle: 1.12,
   standard: 1,
-  hard: 0.9
+  hard: 0.9,
 };
 
 export const MAX_LEVEL = 20;
@@ -21,7 +21,7 @@ export function targetResponseMs(mode: ModeId, level: number, activity: Activity
     switch: 1600,
     react: 900,
     recall: 2400,
-    rhyme: 1700
+    rhyme: 1700,
   };
   const normalized = Math.max(0, Math.min(19, level - 1));
   const levelCompression = Math.max(0.48, 1 - normalized * 0.028);
@@ -44,13 +44,16 @@ export function updateDifficulty(
   trial: Pick<TrialResult, "correct" | "responseMs"> & { targetRt: number },
   activity: Activity,
   mode: ModeId,
-  bias: DifficultyBias
+  bias: DifficultyBias,
 ): DifficultyState {
-  const recent = [...state.recent, {
-    correct: trial.correct,
-    rt: trial.responseMs,
-    targetRt: trial.targetRt
-  }].slice(-8);
+  const recent = [
+    ...state.recent,
+    {
+      correct: trial.correct,
+      rt: trial.responseMs,
+      targetRt: trial.targetRt,
+    },
+  ].slice(-8);
   const trialsSeen = state.trialsSeen + 1;
 
   // Calibration: first 20 trials ease through levels 1–4 so the app feels responsive from session one.

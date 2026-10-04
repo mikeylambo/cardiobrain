@@ -1,380 +1,554 @@
 import { create } from "zustand";
-import type { Activity, Challenge, DifficultyBias, DurationChoice, ModeId, SessionResult, SessionStatus, TrialResult } from "../engine/types";
+import type { Activity, Challenge, ModeChoice, ModeId, SessionResult, TrialResult } from "../engine/types";
 import { hashSeed, mulberry32 } from "../engine/rng";
-import { MIX_MODE_IDS, CORE_MODE_IDS, MODE_REGISTRY } from "../modes/registry";
-import { normalizeRecallShapeId, RECALL_SHAPE_IDS } from "../modes/recall";
 import { challengeScore, sessionMetrics } from "../engine/scoring";
-import { createDifficultyState, targetResponseMs, updateDifficulty, type DifficultyState } from "../engine/difficulty";
-import { makeSessionId, transition } from "../engine/session";
-import { clearActiveSession, loadActiveSession, loadHistory, loadPrefs, loadProgress, saveActiveSession, saveHistory, savePrefs, saveProgress } from "../storage";
+import { createDifficultyState, updateDifficulty, type DifficultyState } from "../engine/difficulty";
+import { GUIDED_BLOCK_MS, GUIDED_MODES, MIX_BLOCK_MS, MIX_MODES, mixModeAt } from "../engine/mix";
+import { AUTO_PAUSE_MS, DURATION_SECONDS, GUIDED_SECONDS, RESUME_WINDOW_MS, makeSessionId } from "../engine/session";
+import { GENERATORS } from "../modes/generate";
+import { isRhymeReady, loadRhymeData } from "../modes/generate/rhyme";
+import {
+  clearActiveSession,
+  clearHistory,
+  clearLocal,
+  DEFAULT_FLAGS,
+  DEFAULT_PREFS,
+  DEFAULT_SETUP,
+  loadActiveSession,
+  loadFlags,
+  loadHistory,
+  loadPrefs,
+  loadProgress,
+  loadSetup,
+  saveActiveSession,
+  saveFlags,
+  saveHistory,
+  savePrefs,
+  saveProgress,
+  saveSetup,
+  type Flags,
+  type PersistedProgress,
+  type SessionSetup,
+  type UserPrefs,
+} from "../storage";
 
-export type AppScreen = "home" | "setup" | "countdown" | "session" | "results" | "history" | "settings" | "onboarding";
+export type Screen = "boot" | "welcome" | "home" | "session" | "results" | "history" | "settings";
+export type SessionPhase = "countdown" | "running" | "paused";
 
-export interface UserPrefs {
-  sound: boolean;
-  haptics: boolean;
-  reducedMotion: boolean;
-  difficultyBias: DifficultyBias;
-}
-
-export type PersistedProgress = Partial<Record<ModeId, DifficultyState>>;
-
-export interface ActiveSessionSnapshot {
+/** Everything about a session that survives a reload. Timing is stored as elapsed running time, never as wall-clock. */
+export interface SessionSnapshot {
   id: string;
   activity: Activity;
-  requestedMode: ModeId | "mix";
-  durationChoice: DurationChoice;
+  requestedMode: ModeChoice;
   durationSeconds: number | null;
-  startedAt: number;
-  pausedTotalMs: number;
-  pauseStartedAt: number | null;
-  status: SessionStatus;
+  guided: boolean;
   seed: number;
+  startedAt: number;
+  elapsedMs: number;
   trialIndex: number;
-  currentChallenge: Challenge;
+  modeCounts: Partial<Record<ModeId, number>>;
   currentMode: ModeId;
-  trialLog: TrialResult[];
-  answeredChallengeId?: string | null;
+  current: Challenge | null;
+  /** The current challenge already has a logged answer. */
+  answered: boolean;
+  trials: TrialResult[];
   streak: number;
   bestStreak: number;
-  difficulty: PersistedProgress;
+  levels: PersistedProgress;
+  mixBlock: number;
+  savedAt: number;
 }
 
-interface ActiveSession extends ActiveSessionSnapshot {
-  trialStartedPerf: number;
+export interface ActiveSession extends SessionSnapshot {
+  phase: SessionPhase;
+  /** Countdown flavour: the first start plays the color wipe, a resume does not. */
+  countdownKind: "start" | "resume";
+  /** performance.now() when the clock last started, null while it is stopped. */
+  runningSince: number | null;
+  /** performance.now() when the current challenge became answerable. */
+  presentedAt: number | null;
+  /** Bumped to re-mount the challenge view (a resume replays the challenge from the top). */
+  presentation: number;
+  /** Mix: the mode the transition card is announcing. */
+  transition: ModeId | null;
+  hiddenAt: number | null;
 }
 
-const DEFAULT_PREFS: UserPrefs = { sound:true, haptics:true, reducedMotion:false, difficultyBias:"standard" };
-const DEFAULT_PROGRESS: PersistedProgress = {};
-const DURATION_SECONDS: Record<Exclude<DurationChoice, "open">, number> = { 10:600, 20:1200, 30:1800 };
-
-function newChallenge(mode: ModeId, level: number, activity: Activity, bias: DifficultyBias, seed: number, trialIndex: number): Challenge {
-  const rng = mulberry32(hashSeed([seed, mode, trialIndex, level]));
-  const definition = MODE_REGISTRY[mode];
-  if (mode === "rhyme" && definition.View.toString() === "() => null") throw new Error("Rhyme Rush is not ready.");
-  return definition.generate(level, rng, { activity, bias, seed, trialIndex });
+export interface AnswerOutcome {
+  correct: boolean;
+  streak: number;
+  milestone: boolean;
 }
 
-function migrateActiveSession(snapshot: ActiveSessionSnapshot): ActiveSessionSnapshot {
-  if (snapshot.currentMode !== "recall") return snapshot;
-  const data = snapshot.currentChallenge.data as { sequence?: unknown };
-  const sequence = Array.isArray(data.sequence)
-    ? data.sequence.map((value) => normalizeRecallShapeId(String(value)))
-    : null;
-  if (!sequence || sequence.some((value) => value === null)) return snapshot;
+interface State {
+  screen: Screen;
+  prefs: UserPrefs;
+  setup: SessionSetup;
+  flags: Flags;
+  progress: PersistedProgress;
+  history: SessionResult[];
+  active: ActiveSession | null;
+  recoverable: SessionSnapshot | null;
+  lastResult: SessionResult | null;
+  error: string | null;
 
-  const normalizedSequence = sequence as Array<typeof RECALL_SHAPE_IDS[number]>;
-  const options = RECALL_SHAPE_IDS.map((id) => ({ id, label: id[0]!.toUpperCase() + id.slice(1) }));
+  boot: () => Promise<void>;
+  go: (screen: Screen) => void;
+  chooseActivity: (activity: Activity) => void;
+  updateSetup: (patch: Partial<SessionSetup>) => void;
+  updatePrefs: (patch: Partial<UserPrefs>) => void;
+  markInstallOffered: () => void;
+  startSession: (options?: { guided?: boolean }) => Promise<void>;
+  countdownDone: () => void;
+  markPresented: () => void;
+  answer: (answerId: string) => AnswerOutcome | null;
+  advance: () => void;
+  endTransition: () => void;
+  pause: () => void;
+  resume: () => void;
+  backgrounded: () => void;
+  foregrounded: () => void;
+  tick: () => void;
+  endSession: () => void;
+  resumeRecovered: () => Promise<void>;
+  discardRecovered: () => void;
+  deleteAllData: () => Promise<void>;
+  clearError: () => void;
+}
+
+const now = () => performance.now();
+
+export function elapsedMs(active: Pick<ActiveSession, "elapsedMs" | "runningSince"> | null): number {
+  if (!active) return 0;
+  return active.elapsedMs + (active.runningSince !== null ? now() - active.runningSince : 0);
+}
+
+const needsRhyme = (mode: ModeChoice, guided: boolean) => !guided && (mode === "rhyme" || mode === "mix");
+
+function modeFor(s: Pick<SessionSnapshot, "requestedMode" | "guided" | "seed">, block: number): ModeId {
+  if (s.guided) return mixModeAt(s.seed, block, GUIDED_MODES);
+  if (s.requestedMode === "mix") return mixModeAt(s.seed, block, MIX_MODES);
+  return s.requestedMode;
+}
+
+function blockMs(s: Pick<SessionSnapshot, "guided">): number {
+  return s.guided ? GUIDED_BLOCK_MS : MIX_BLOCK_MS;
+}
+
+function makeChallenge(s: ActiveSession, mode: ModeId, bias: UserPrefs["difficultyBias"]): Challenge {
+  const state = s.levels[mode] ?? createDifficultyState();
+  const rng = mulberry32(hashSeed([s.seed, mode, s.trialIndex, state.level]));
+  return GENERATORS[mode](state.level, rng, {
+    activity: s.activity,
+    bias,
+    seed: s.seed,
+    trialIndex: s.trialIndex,
+    modeTrialIndex: s.modeCounts[mode] ?? 0,
+  });
+}
+
+function snapshotOf(a: ActiveSession): SessionSnapshot {
   return {
-    ...snapshot,
-    currentChallenge: {
-      ...snapshot.currentChallenge,
-      options,
-      correctAnswer: normalizedSequence.join("|"),
-      data: { ...snapshot.currentChallenge.data, sequence: normalizedSequence }
-    }
+    id: a.id,
+    activity: a.activity,
+    requestedMode: a.requestedMode,
+    durationSeconds: a.durationSeconds,
+    guided: a.guided,
+    seed: a.seed,
+    startedAt: a.startedAt,
+    elapsedMs: elapsedMs(a),
+    trialIndex: a.trialIndex,
+    modeCounts: a.modeCounts,
+    currentMode: a.currentMode,
+    current: a.current,
+    answered: a.answered,
+    trials: a.trials,
+    streak: a.streak,
+    bestStreak: a.bestStreak,
+    levels: a.levels,
+    mixBlock: a.mixBlock,
+    savedAt: Date.now(),
   };
 }
 
-function ensureProgress(progress: PersistedProgress): PersistedProgress {
-  const output = { ...DEFAULT_PROGRESS, ...progress };
-  for (const mode of CORE_MODE_IDS) if (!output[mode]) output[mode] = createDifficultyState();
-  return output;
-}
-
-function elapsedSeconds(session: ActiveSession): number {
-  const now = Date.now();
-  const livePause = session.status === "paused" && session.pauseStartedAt ? now - session.pauseStartedAt : 0;
-  return Math.max(0, (now - session.startedAt - session.pausedTotalMs - livePause) / 1000);
-}
-
-function modeFor(requestedMode: ModeId | "mix", elapsed: number, trialIndex: number): ModeId {
-  if (requestedMode !== "mix") return requestedMode;
-  const block = Math.floor(elapsed / 75);
-  return MIX_MODE_IDS[(block + Math.floor(trialIndex / 6)) % MIX_MODE_IDS.length]!;
-}
-
-function configuredDurationSeconds(choice: DurationChoice): number | null {
-  if (choice === "open") return null;
-  if (typeof window !== "undefined" && (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost")) {
-    try {
-      const override = Number(sessionStorage.getItem("cb-test-duration-seconds"));
-      if (Number.isFinite(override) && override > 0 && override < 3600) return override;
-    } catch {}
+/** Test seam: a fixed short duration on localhost only, so e2e runs do not take 10 minutes. */
+function durationOverride(): number | null {
+  try {
+    if (!["localhost", "127.0.0.1"].includes(location.hostname)) return null;
+    const raw = sessionStorage.getItem("cb-test-duration-seconds");
+    return raw ? Number(raw) : null;
+  } catch {
+    return null;
   }
-  return DURATION_SECONDS[choice];
 }
 
-interface Store {
-  screen: AppScreen;
-  hydrated: boolean;
-  notice: string | null;
-  history: SessionResult[];
-  prefs: UserPrefs;
-  progress: PersistedProgress;
-  onboardingDone: boolean;
-  resumeAvailable: boolean;
-  setup: { activity: Activity; mode: ModeId | "mix"; duration: DurationChoice };
-  active: ActiveSession | null;
-  lastResult: SessionResult | null;
+export const MILESTONES = new Set([5, 10, 25]);
 
-  hydrate: () => Promise<void>;
-  setScreen: (screen: AppScreen) => void;
-  setSetup: (patch: Partial<Store["setup"]>) => void;
-  updatePrefs: (patch: Partial<UserPrefs>) => void;
-  completeOnboarding: () => void;
-  startCountdown: () => void;
-  finishCountdown: () => void;
-  pauseSession: () => void;
-  resumeCountdown: () => void;
-  presentChallenge: () => void;
-  answer: (answerId: string) => void;
-  finishSession: () => void;
-  resumeSession: () => void;
-  discardResume: () => Promise<void>;
-  resetData: () => Promise<void>;
-  exportAll: () => Promise<void>;
-  dismissNotice: () => void;
-}
+export const useStore = create<State>((set, get) => {
+  const persist = () => {
+    const a = get().active;
+    if (a) void saveActiveSession(snapshotOf(a));
+  };
 
-export const useCardioStore = create<Store>((set, get) => ({
-  screen: "home",
-  hydrated: false,
-  notice: null,
-  history: [],
-  prefs: DEFAULT_PREFS,
-  progress: DEFAULT_PROGRESS,
-  onboardingDone: false,
-  resumeAvailable: false,
-  setup: { activity:"walk", mode:"mix", duration:10 },
-  active:null,
-  lastResult:null,
+  const stopClock = (a: ActiveSession): ActiveSession => ({ ...a, elapsedMs: elapsedMs(a), runningSince: null });
 
-  hydrate: async () => {
-    const [history, activeSnapshot] = await Promise.all([loadHistory(), loadActiveSession()]);
-    const prefs = loadPrefs();
-    const progress = ensureProgress(loadProgress());
-    const onboardingDone = localStorage.getItem("cb-onboarding") === "1";
-    const resumable = Boolean(activeSnapshot && Date.now() - activeSnapshot.startedAt < 30 * 60 * 1000 && activeSnapshot.status !== "finished");
-    const migratedSnapshot = resumable && activeSnapshot ? migrateActiveSession(activeSnapshot) : null;
-    const active = migratedSnapshot ? { ...migratedSnapshot, trialStartedPerf: performance.now() } : null;
-    if (!resumable && activeSnapshot) await clearActiveSession();
-    set({
-      hydrated:true, history, prefs, progress, onboardingDone,
-      resumeAvailable:Boolean(resumable),
-      active
-    });
-  },
-
-  setScreen: (screen) => set({ screen }),
-  setSetup: (patch) => set((state) => ({ setup:{...state.setup,...patch} })),
-  updatePrefs: (patch) => set((state) => {
-    const prefs = {...state.prefs,...patch};
-    savePrefs(prefs);
-    document.documentElement.dataset.reducedMotion = prefs.reducedMotion ? "true" : "false";
-    return {prefs};
-  }),
-  completeOnboarding: () => {
-    try { localStorage.setItem("cb-onboarding","1"); } catch {}
-    set({onboardingDone:true,screen:"setup"});
-  },
-
-  startCountdown: () => {
-    const {setup, progress, prefs} = get();
-    const seed = hashSeed([Date.now(), setup.activity, setup.mode, Math.random()]);
-    const mode = modeFor(setup.mode, 0, 0);
-    const state = ensureProgress(progress);
-    const level = state[mode]?.level ?? 1;
-    const challenge = newChallenge(mode, level, setup.activity, prefs.difficultyBias, seed, 0);
-    const durationSeconds = configuredDurationSeconds(setup.duration);
-    const active:ActiveSession = {
-      id:makeSessionId(),
-      activity:setup.activity,
-      requestedMode:setup.mode,
-      durationChoice:setup.duration,
-      durationSeconds,
-      startedAt:Date.now(),
-      pausedTotalMs:0,
-      pauseStartedAt:null,
-      status:"countdown",
-      seed,
-      trialIndex:0,
-      currentChallenge:challenge,
-      currentMode:mode,
-      trialLog:[],
-      answeredChallengeId:null,
-      streak:0,
-      bestStreak:0,
-      difficulty:state,
-      trialStartedPerf:performance.now()
-    };
-    void saveActiveSession(active);
-    set({active,screen:"countdown",resumeAvailable:false});
-  },
-
-  finishCountdown: () => {
-    const active=get().active;
-    if (!active) return;
-    const next={...active,status:"running" as const,trialStartedPerf:performance.now()};
-    void saveActiveSession(next);
-    set({active:next,screen:"session"});
-  },
-
-  pauseSession: () => {
-    const active=get().active;
-    if (!active || active.status !== "running") return;
-    const next={...active,status:"paused" as const,pauseStartedAt:Date.now()};
-    void saveActiveSession(next);
-    set({active:next});
-  },
-
-  resumeCountdown: () => {
-    const active=get().active;
-    if (!active || active.status !== "paused") return;
-    const pauseDelta=active.pauseStartedAt ? Date.now()-active.pauseStartedAt : 0;
-    const next={...active,status:"countdown" as const,pauseStartedAt:null,pausedTotalMs:active.pausedTotalMs+pauseDelta,trialStartedPerf:performance.now()};
-    void saveActiveSession(next);
-    set({active:next,screen:"countdown"});
-  },
-
-  presentChallenge: () => {
-    const active=get().active;
-    if (!active || active.status !== "running") return;
-    const next={...active,trialStartedPerf:performance.now()};
-    set({active:next});
-  },
-
-  answer: (answerId) => {
-    const state=get();
-    const active=state.active;
-    if (!active || active.status !== "running") return;
-    const challenge=active.currentChallenge;
-    if (active.answeredChallengeId === challenge.id) return;
-    const claimed = { ...active, answeredChallengeId: challenge.id };
-    set({active:claimed});
-    const responseMs=Math.max(1,performance.now()-claimed.trialStartedPerf);
-    const correct=answerId===challenge.correctAnswer;
-    const nextStreak=correct ? claimed.streak+1 : 0;
-    const score=challengeScore(correct,challenge.level,responseMs,challenge.targetRt,nextStreak,state.prefs.difficultyBias);
-    const trial:TrialResult={
-      id:`${claimed.id}-${claimed.trialIndex}`,
-      challengeId:challenge.id,
-      mode:claimed.currentMode,
-      activity:claimed.activity,
-      level:challenge.level,
-      answerId,
-      correctAnswer:challenge.correctAnswer,
-      correct,
-      responseMs,
-      score,
-      streak:nextStreak,
-      timestamp:Date.now()
-    };
-    const difficultyState=ensureProgress(claimed.difficulty);
-    const updated=updateDifficulty(difficultyState[active.currentMode]!, {correct,responseMs,targetRt:challenge.targetRt}, active.activity, active.currentMode, state.prefs.difficultyBias);
-    const difficulty={...difficultyState,[active.currentMode]:updated};
-    saveProgress(difficulty);
-    const trialLog=[...claimed.trialLog,trial];
-    const nextIndex=claimed.trialIndex+1;
-    const elapsed=elapsedSeconds(claimed);
-    if (claimed.durationSeconds !== null && elapsed >= claimed.durationSeconds) {
-      const temp={...claimed,trialLog,trialIndex:nextIndex,streak:nextStreak,bestStreak:Math.max(claimed.bestStreak,nextStreak),difficulty,status:"running" as const};
-      set({active:temp});
-      get().finishSession();
+  const finish = () => {
+    const a = get().active;
+    if (!a) return;
+    const stopped = stopClock(a);
+    if (stopped.guided && !get().flags.onboarded) {
+      const flags = { ...get().flags, onboarded: true };
+      saveFlags(flags);
+      set({ flags });
+    }
+    if (!stopped.trials.length) {
+      set({ active: null, screen: "home" });
+      void clearActiveSession();
       return;
     }
-    const nextMode=modeFor(claimed.requestedMode,elapsed,nextIndex);
-    const nextLevel=ensureProgress(difficulty)[nextMode]?.level ?? 1;
-    const nextChallenge=newChallenge(nextMode,nextLevel,claimed.activity,state.prefs.difficultyBias,claimed.seed,nextIndex);
-    const next={...claimed,trialIndex:nextIndex,currentChallenge:nextChallenge,currentMode:nextMode,trialLog,streak:nextStreak,bestStreak:Math.max(claimed.bestStreak,nextStreak),difficulty,answeredChallengeId:null,trialStartedPerf:performance.now()};
-    void saveActiveSession(next);
-    set({active:next});
-  },
-
-  finishSession: () => {
-    const active=get().active;
-    if (!active) return;
-    const now=Date.now();
-    const duration=Math.max(0, (now-active.startedAt-active.pausedTotalMs-(active.status==="paused"&&active.pauseStartedAt?now-active.pauseStartedAt:0))/1000);
-    const metrics=sessionMetrics(active.trialLog);
-    const result:SessionResult={
-      id:active.id,
-      activity:active.activity,
-      requestedMode:active.requestedMode,
-      durationSeconds:duration,
+    const metrics = sessionMetrics(stopped.trials);
+    const result: SessionResult = {
+      id: stopped.id,
+      activity: stopped.activity,
+      requestedMode: stopped.requestedMode,
+      durationSeconds: Math.round(stopped.elapsedMs / 1000),
       ...metrics,
-      startedAt:active.startedAt,
-      finishedAt:now,
-      trials:active.trialLog
+      startedAt: stopped.startedAt,
+      finishedAt: Date.now(),
+      guided: stopped.guided || undefined,
+      trials: stopped.trials,
     };
-    const nextHistory=[result,...get().history].slice(0,200);
-    void Promise.all([saveHistory(nextHistory),clearActiveSession()]);
-    set({history:nextHistory,lastResult:result,active:null,screen:"results",resumeAvailable:false});
-  },
+    const history = [result, ...get().history];
+    const progress = { ...get().progress, ...stopped.levels };
+    saveProgress(progress);
+    void saveHistory(history);
+    void clearActiveSession();
+    set({ active: null, history, progress, lastResult: result, screen: "results" });
+  };
 
-  resumeSession: () => {
-    const active=get().active;
-    if (!active) return;
-    const pauseDelta=active.pauseStartedAt ? Date.now()-active.pauseStartedAt : 0;
-    const next={...active,status:"countdown" as const,pauseStartedAt:null,pausedTotalMs:active.pausedTotalMs+pauseDelta,trialStartedPerf:performance.now()};
-    void saveActiveSession(next);
-    set({active:next,screen:"countdown",resumeAvailable:false});
-  },
+  return {
+    screen: "boot",
+    prefs: DEFAULT_PREFS,
+    setup: DEFAULT_SETUP,
+    flags: DEFAULT_FLAGS,
+    progress: {},
+    history: [],
+    active: null,
+    recoverable: null,
+    lastResult: null,
+    error: null,
 
-  discardResume: async () => {
-    await clearActiveSession();
-    set({active:null,resumeAvailable:false});
-  },
+    boot: async () => {
+      const prefs = loadPrefs();
+      const setup = loadSetup();
+      const flags = loadFlags();
+      const progress = loadProgress();
+      const [history, snapshot] = await Promise.all([loadHistory(), loadActiveSession<SessionSnapshot>()]);
+      const fresh = snapshot && Date.now() - snapshot.savedAt < RESUME_WINDOW_MS && snapshot.trials ? snapshot : null;
+      if (snapshot && !fresh) void clearActiveSession();
+      set({
+        prefs,
+        setup,
+        flags,
+        progress,
+        history,
+        recoverable: fresh,
+        lastResult: history[0] ?? null,
+        screen: flags.onboarded ? "home" : "welcome",
+      });
+    },
 
-  resetData: async () => {
-    const progress = ensureProgress({});
-    const prefs = { ...DEFAULT_PREFS };
-    await Promise.all([
-      clearActiveSession(),
-      saveHistory([]),
-      savePrefs(prefs),
-      saveProgress(progress)
-    ]);
-    try {
-      localStorage.removeItem("cb-onboarding");
-      localStorage.removeItem("cb-a2hs");
-    } catch {}
-    document.documentElement.dataset.reducedMotion = "false";
-    set({
-      history:[],
-      prefs,
-      progress,
-      onboardingDone:false,
-      resumeAvailable:false,
-      setup:{activity:"walk",mode:"mix",duration:10},
-      active:null,
-      lastResult:null,
-      notice:null,
-      screen:"onboarding"
-    });
-  },
+    go: (screen) => set({ screen }),
 
-  exportAll: async () => {
-    const {history,progress,prefs}=get();
-    const {exportData}=await import("../storage");
-    await exportData(history,progress,prefs);
-  },
+    chooseActivity: (activity) => {
+      const setup = { ...get().setup, activity };
+      saveSetup(setup);
+      set({ setup });
+    },
 
-  dismissNotice: () => set({notice:null})
-}));
+    updateSetup: (patch) => {
+      const setup = { ...get().setup, ...patch };
+      saveSetup(setup);
+      set({ setup });
+    },
 
-export function getDurationLabel(value: DurationChoice): string {
-  return value === "open" ? "OPEN" : `${value} MIN`;
-}
+    updatePrefs: (patch) => {
+      const prefs = { ...get().prefs, ...patch };
+      savePrefs(prefs);
+      set({ prefs });
+    },
 
-export function modeLabel(mode: ModeId | "mix"): string {
-  return mode === "mix" ? "MIX" : MODE_REGISTRY[mode].shortLabel;
-}
+    markInstallOffered: () => {
+      const flags = { ...get().flags, installOffered: true };
+      saveFlags(flags);
+      set({ flags });
+    },
 
-export function currentElapsedSeconds(active: ActiveSession | null): number {
-  return active ? elapsedSeconds(active) : 0;
-}
+    startSession: async (options = {}) => {
+      const guided = Boolean(options.guided);
+      const { setup, progress } = get();
+      const seed = hashSeed([Date.now(), Math.random()]);
+      const durationSeconds = durationOverride() ?? (guided ? GUIDED_SECONDS : setup.duration === "open" ? null : DURATION_SECONDS[setup.duration]);
+      const base = { requestedMode: guided ? ("mix" as const) : setup.mode, guided, seed };
+      const first = modeFor(base, 0);
+      void clearActiveSession();
+      set({
+        recoverable: null,
+        error: null,
+        screen: "session",
+        active: {
+          id: makeSessionId(),
+          activity: setup.activity,
+          ...base,
+          durationSeconds,
+          startedAt: Date.now(),
+          elapsedMs: 0,
+          trialIndex: 0,
+          modeCounts: {},
+          currentMode: first,
+          current: null,
+          trials: [],
+          streak: 0,
+          bestStreak: 0,
+          // Guided first rounds start everyone at the calibration level.
+          levels: guided ? {} : { ...progress },
+          mixBlock: 0,
+          savedAt: Date.now(),
+          phase: "countdown",
+          countdownKind: "start",
+          runningSince: null,
+          presentedAt: null,
+          answered: false,
+          presentation: 0,
+          transition: null,
+          hiddenAt: null,
+        },
+      });
+      if (needsRhyme(base.requestedMode, guided) && !isRhymeReady()) {
+        try {
+          await loadRhymeData();
+        } catch {
+          set({ active: null, screen: "home", error: "Rhyme words didn't load. Connect once to download them, then try again." });
+        }
+      }
+    },
 
-export function currentTargetMs(mode: ModeId, activity: Activity, bias: DifficultyBias, level:number):number {
-  return targetResponseMs(mode,level,activity,bias);
-}
+    countdownDone: () => {
+      const a = get().active;
+      if (!a || a.phase !== "countdown") return;
+      if (needsRhyme(a.requestedMode, a.guided) && !isRhymeReady()) return; // still loading; the countdown waits
+      let next: ActiveSession = { ...a, phase: "running", runningSince: now(), presentedAt: null, answered: false };
+      if (!next.current) {
+        next = { ...next, current: makeChallenge(next, next.currentMode, get().prefs.difficultyBias) };
+      } else {
+        next = { ...next, presentation: next.presentation + 1 };
+      }
+      set({ active: next });
+      persist();
+    },
+
+    markPresented: () => {
+      const a = get().active;
+      if (!a || a.phase !== "running" || a.presentedAt !== null) return;
+      set({ active: { ...a, presentedAt: now() } });
+    },
+
+    answer: (answerId) => {
+      const a = get().active;
+      if (!a || a.phase !== "running" || !a.current || a.answered || a.presentedAt === null || a.transition) return null;
+      const challenge = a.current;
+      const { difficultyBias } = get().prefs;
+      const withheld = answerId === challenge.timeoutAnswer && answerId === challenge.correctAnswer;
+      const correct = answerId === challenge.correctAnswer;
+      // A withheld no-go has no response time; it would only drag the average toward the window.
+      const responseMs = withheld ? 0 : Math.max(0, now() - a.presentedAt);
+      const streak = correct ? a.streak + 1 : 0;
+      const trial: TrialResult = {
+        id: `${a.id}-${a.trialIndex}`,
+        challengeId: challenge.id,
+        mode: challenge.mode,
+        level: challenge.level,
+        answerId,
+        correctAnswer: challenge.correctAnswer,
+        correct,
+        responseMs,
+        score: challengeScore(correct, challenge.level, responseMs, challenge.targetRt, streak, difficultyBias),
+        streak,
+        switchTrial: challenge.switchTrial,
+        timestamp: Date.now(),
+      };
+      const prior: DifficultyState = a.levels[challenge.mode] ?? createDifficultyState();
+      const level = updateDifficulty(
+        prior,
+        { correct, responseMs: responseMs || challenge.targetRt, targetRt: challenge.targetRt },
+        a.activity,
+        challenge.mode,
+        difficultyBias,
+      );
+      set({
+        active: {
+          ...a,
+          answered: true,
+          trials: [...a.trials, trial],
+          streak,
+          bestStreak: Math.max(a.bestStreak, streak),
+          levels: { ...a.levels, [challenge.mode]: level },
+          modeCounts: { ...a.modeCounts, [challenge.mode]: (a.modeCounts[challenge.mode] ?? 0) + 1 },
+          trialIndex: a.trialIndex + 1,
+        },
+      });
+      return { correct, streak, milestone: correct && MILESTONES.has(streak) };
+    },
+
+    advance: () => {
+      const a = get().active;
+      if (!a || a.phase !== "running" || !a.answered) return;
+      const elapsed = elapsedMs(a);
+      if (a.durationSeconds !== null && elapsed >= a.durationSeconds * 1000) {
+        finish();
+        return;
+      }
+      const mixing = a.guided || a.requestedMode === "mix";
+      const block = mixing ? Math.floor(elapsed / blockMs(a)) : 0;
+      if (mixing && block !== a.mixBlock) {
+        const mode = modeFor(a, block);
+        set({ active: { ...a, mixBlock: block, currentMode: mode, current: null, transition: mode, presentedAt: null } });
+        return;
+      }
+      const current = makeChallenge(a, a.currentMode, get().prefs.difficultyBias);
+      set({ active: { ...a, current, answered: false, presentedAt: null } });
+    },
+
+    endTransition: () => {
+      const a = get().active;
+      if (!a || !a.transition) return;
+      const next = { ...a, transition: null, answered: false, presentedAt: null };
+      set({ active: { ...next, current: makeChallenge(next, next.currentMode, get().prefs.difficultyBias) } });
+    },
+
+    pause: () => {
+      const a = get().active;
+      if (!a || a.phase === "paused") return;
+      set({ active: { ...stopClock(a), phase: "paused", hiddenAt: null } });
+      persist();
+    },
+
+    resume: () => {
+      const a = get().active;
+      if (!a || a.phase !== "paused") return;
+      // An unanswered challenge is replayed from the top after the countdown.
+      set({
+        active: {
+          ...a,
+          phase: "countdown",
+          countdownKind: "resume",
+          presentedAt: null,
+          answered: false,
+          transition: null,
+          current: a.answered || a.transition ? null : a.current,
+        },
+      });
+    },
+
+    backgrounded: () => {
+      const a = get().active;
+      if (!a || a.hiddenAt !== null || a.phase === "paused") return;
+      if (a.phase === "countdown") {
+        set({ active: { ...a, phase: "paused" } });
+        persist();
+        return;
+      }
+      set({ active: { ...stopClock(a), hiddenAt: now() } });
+      persist();
+    },
+
+    foregrounded: () => {
+      const a = get().active;
+      if (!a || a.hiddenAt === null) return;
+      const away = now() - a.hiddenAt;
+      if (a.phase !== "running") {
+        set({ active: { ...a, hiddenAt: null } });
+        return;
+      }
+      if (away > AUTO_PAUSE_MS) {
+        set({ active: { ...a, phase: "paused", hiddenAt: null } });
+        persist();
+        return;
+      }
+      // A glance away: carry on, and do not charge the time away to the response.
+      set({
+        active: {
+          ...a,
+          hiddenAt: null,
+          runningSince: now(),
+          presentedAt: a.presentedAt !== null ? a.presentedAt + away : null,
+        },
+      });
+    },
+
+    tick: () => {
+      const a = get().active;
+      if (!a || a.phase !== "running") return;
+      if (a.durationSeconds !== null && elapsedMs(a) >= a.durationSeconds * 1000) finish();
+      else if (Date.now() - a.savedAt > 5000) {
+        const snap = snapshotOf(a);
+        set({ active: { ...a, savedAt: snap.savedAt } });
+        void saveActiveSession(snap);
+      }
+    },
+
+    endSession: finish,
+
+    resumeRecovered: async () => {
+      const snap = get().recoverable;
+      if (!snap) return;
+      if (needsRhyme(snap.requestedMode, snap.guided) && !isRhymeReady()) {
+        try {
+          await loadRhymeData();
+        } catch {
+          set({ error: "Rhyme words didn't load. Connect once to download them, then try again." });
+          return;
+        }
+      }
+      set({
+        recoverable: null,
+        screen: "session",
+        active: {
+          ...snap,
+          current: snap.answered ? null : snap.current,
+          phase: "paused",
+          countdownKind: "resume",
+          runningSince: null,
+          presentedAt: null,
+          answered: false,
+          presentation: 0,
+          transition: null,
+          hiddenAt: null,
+        },
+      });
+    },
+
+    discardRecovered: () => {
+      void clearActiveSession();
+      set({ recoverable: null });
+    },
+
+    deleteAllData: async () => {
+      clearLocal();
+      await Promise.all([clearHistory(), clearActiveSession()]);
+      set({
+        prefs: DEFAULT_PREFS,
+        setup: DEFAULT_SETUP,
+        flags: DEFAULT_FLAGS,
+        progress: {},
+        history: [],
+        active: null,
+        recoverable: null,
+        lastResult: null,
+        screen: "welcome",
+      });
+    },
+
+    clearError: () => set({ error: null }),
+  };
+});

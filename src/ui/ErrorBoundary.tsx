@@ -1,21 +1,31 @@
 import React from "react";
 
-interface Props { children: React.ReactNode }
-interface State { failed: boolean }
+interface State {
+  error: Error | null;
+}
 
-export class ErrorBoundary extends React.Component<Props, State> {
-  state: State = { failed: false };
-  static getDerivedStateFromError(): State { return { failed: true }; }
+export class ErrorBoundary extends React.Component<{ children: React.ReactNode }, State> {
+  state: State = { error: null };
+
+  static getDerivedStateFromError(error: Error): State {
+    return { error };
+  }
+
+  componentDidCatch(error: Error): void {
+    console.warn("CardioBrain recovered from an error:", error.message);
+  }
+
   render() {
-    if (!this.state.failed) return this.props.children;
+    if (!this.state.error) return this.props.children;
     return (
-      <main className="app-frame">
-        <div className="empty-state">
-          <div className="hero-mark" aria-hidden="true">CB</div>
-          <h1 className="section-title">Something reset.</h1>
-          <p className="body-copy">Your history is safe. Reload this page and CardioBrain will recover.</p>
-          <button className="action-primary" onClick={() => window.location.reload()}>Reload CardioBrain</button>
+      <main className="screen ink" style={{ justifyContent: "space-between" }}>
+        <div className="stack gap-12" style={{ marginTop: 40 }}>
+          <h1 className="display t-40">Something went wrong.</h1>
+          <p className="t-17">Your history is safe on this device, and an unfinished session can be resumed from Home.</p>
         </div>
+        <button className="btn-primary" onClick={() => location.reload()}>
+          Reload
+        </button>
       </main>
     );
   }

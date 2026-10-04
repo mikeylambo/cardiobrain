@@ -3,6 +3,7 @@
 Reference mood: midnight athletic instrument. Think premium running watch plus modern scientific measuring device. Avoid game-show fitness, cyberpunk, or generic SaaS dashboard treatment.
 
 Palette:
+
 - OLED black #05060A
 - panel #0C0F16 / #10141D
 - text #F5F6FA
@@ -13,18 +14,21 @@ Palette:
 - Run #FF8B72
 
 Typography:
+
 - display: Sora / Space Grotesk class geometric sans
 - UI: system sans
 - 54px hero, 38px section, 64–116px live stimulus, 50–92px secondary stimulus, 70px result score, 27px metrics, 14–16px body, 10–12px eyebrows
 - tabular numerals for every changing number
 
 Spacing:
+
 - 4px base
 - preferred rhythm 8 / 12 / 16 / 20 / 24 / 32 / 48px
 - sibling controls 8–12px
 - major idea separation 32–48px
 
 Motion:
+
 - enter 220ms cubic-bezier(.22,1,.36,1)
 - exit 140ms cubic-bezier(.4,0,1,1)
 - press 90ms to 96% scale
@@ -35,6 +39,7 @@ Motion:
 - reduced motion removes movement but keeps state, sound, and haptics
 
 Running layout:
+
 - top 8–10%: mode, elapsed, pause
 - middle 55–60%: one dominant stimulus
 - bottom 30–35%: answer pads, minimum 88px high

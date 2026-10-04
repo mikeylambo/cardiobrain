@@ -3,6 +3,7 @@
 This file records deliberate product and implementation choices made during the continuous build.
 
 ## Product
+
 - CardioBrain is a glance-first cognitive training companion for cardio, not a generic brain-training dashboard.
 - The v1 loop is one-screen stimulus + one-tap response. No typing during sessions.
 - The four initial modes are Numbers, Switch, React, and Recall. Mix is a composition layer.
@@ -10,6 +11,7 @@ This file records deliberate product and implementation choices made during the 
 - No account, backend, analytics SDK, or network dependency is required for core play.
 
 ## Engineering
+
 - Vite + React + TypeScript strict mode.
 - Zustand owns UI/session state; engine modules stay pure where possible.
 - IndexedDB stores history and resumable session data; localStorage only stores tiny preferences.
@@ -22,6 +24,7 @@ This file records deliberate product and implementation choices made during the 
 - The four JSX-bearing mode files were corrected to .tsx after the first Vercel build exposed TypeScript parser errors. This is now part of the release gate.
 
 ## UX
+
 - Active activity controls the accent family through CSS variables.
 - Running mode deliberately removes navigation chrome and keeps the interaction zone large.
 - Wrong answers never punish with full-screen red; feedback is tactile, tonal, and brief.
@@ -29,11 +32,13 @@ This file records deliberate product and implementation choices made during the 
 - The app is portrait-first but does not claim device-level screen locking where browsers do not expose that permission.
 
 ## Release
+
 - Vercel serves the app as a static build.
 - Service worker updates only surface on Home.
 - Testability is a first-class feature: every challenge is generated from a seeded RNG and the engine has pure unit-test seams.
 
 ## Build-process hardening
+
 - Design is now an executable artifact in DESIGN.md, including palette, type scale, spacing, motion durations/easings, screen anatomy, and sample copy.
 - Critical interaction paths are enumerated in FLOWS.md with exact tap sequences.
 - REVIEW.md and e2e/review.spec.ts define the repeatable mobile review loop: 390×844 screenshots plus real short sessions across all five modes.

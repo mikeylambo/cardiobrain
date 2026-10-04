@@ -1,47 +1,217 @@
 import React from "react";
-import type { ModeId, SessionResult } from "../engine/types";
-import { MODE_REGISTRY } from "../modes/registry";
-import { useCardioStore } from "../state/store";
-import { BottomNav } from "./HomeScreen";
+import type { ModeChoice, SessionResult } from "../engine/types";
+import { MODE_CHOICES, MODE_INFO } from "../modes/registry";
+import { useStore } from "../state/store";
+import { BackIcon, Sheet } from "./components";
+import { ACTIVITY_LABEL, minutesLabel, pct, secs, sessionNote, switchCostText } from "./copy";
 
-const modeLabel=(m:ModeId|"mix")=>m==="mix"?"Mix":MODE_REGISTRY[m].label;
-const date=(ts:number)=>new Date(ts).toLocaleDateString(undefined,{month:"short",day:"numeric"});
-const duration=(s:number)=>s<60?Math.max(1,Math.round(s))+"s":Math.round(s/60)+"m";
+const DAY = 86_400_000;
+const startOfDay = (t: number) => {
+  const d = new Date(t);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+};
 
-function Sparkline({values}:{values:number[]}){
-  if(values.length<2)return <svg className="sparkline" viewBox="0 0 100 40" preserveAspectRatio="none"><line x1="0" y1="20" x2="100" y2="20" stroke="rgba(255,255,255,.12)"/></svg>;
-  const min=Math.min(...values),max=Math.max(...values),span=Math.max(1,max-min);
-  const points=values.map((v,i)=>(i/(values.length-1))*100+","+(36-((v-min)/span)*28)).join(" ");
-  return <svg className="sparkline" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true"><polyline fill="none" stroke="var(--activity)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" points={points}/></svg>;
+/** One series, one axis: a 2px line, recessive baseline, the latest value labelled, tap a point to read it. */
+function Trend({
+  title,
+  values,
+  format,
+  invert = false,
+}: {
+  title: string;
+  values: Array<{ v: number; t: number }>;
+  format: (v: number) => string;
+  invert?: boolean;
+}) {
+  const [focus, setFocus] = React.useState<number | null>(null);
+  const W = 320;
+  const H = 88;
+  const pad = 6;
+  if (values.length < 2) {
+    return (
+      <div className="trend">
+        <div className="trend-head">
+          <span className="t-17">{title}</span>
+          <strong className="num">{values[0] ? format(values[0].v) : "–"}</strong>
+        </div>
+        <p className="t-14" style={{ color: "var(--muted)", marginTop: 6 }}>
+          A trend appears after two sessions.
+        </p>
+      </div>
+    );
+  }
+  const vs = values.map((p) => p.v);
+  const lo = Math.min(...vs);
+  const hi = Math.max(...vs);
+  const span = hi - lo || 1;
+  const x = (i: number) => pad + (i * (W - pad * 2)) / (values.length - 1);
+  // Higher is better for accuracy; for response time lower is better, so the axis flips and "up" always means "better".
+  const y = (v: number) => {
+    const n = (v - lo) / span;
+    return pad + (invert ? n : 1 - n) * (H - pad * 2);
+  };
+  const d = values.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ");
+  const shown = focus ?? values.length - 1;
+  const point = values[shown]!;
+  return (
+    <div className="trend">
+      <div className="trend-head">
+        <span className="t-17">{title}</span>
+        <strong className="num">{format(point.v)}</strong>
+      </div>
+      <p className="t-14" style={{ color: "var(--muted)" }}>
+        {focus === null ? "Latest" : new Date(point.t).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+        {invert ? ". Higher on the chart is faster." : ""}
+      </p>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={`${title} over the last ${values.length} sessions, from ${format(values[0]!.v)} to ${format(values[values.length - 1]!.v)}`}
+        onPointerMove={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          const i = Math.round(((e.clientX - r.left) / r.width) * (values.length - 1));
+          setFocus(Math.max(0, Math.min(values.length - 1, i)));
+        }}
+        onPointerLeave={() => setFocus(null)}
+      >
+        <line x1={0} x2={W} y1={H - 1} y2={H - 1} stroke="var(--rule)" strokeWidth={2} vectorEffect="non-scaling-stroke" />
+        <path d={d} fill="none" stroke="var(--asphalt)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+        <circle cx={x(shown)} cy={y(point.v)} r={5} fill="var(--asphalt)" stroke="var(--chalk)" strokeWidth={2} vectorEffect="non-scaling-stroke" />
+      </svg>
+    </div>
+  );
 }
 
-export function HistoryScreen({navigate}:{navigate:(screen:"home"|"setup"|"history"|"settings")=>void}){
-  const history=useCardioStore(s=>s.history);
-  const [selected,setSelected]=React.useState<SessionResult|null>(null);
-  const recent=history.slice(0,12);
-  const accuracy=recent.slice(0,10).reverse().map(s=>s.accuracy*100);
-  const response=recent.slice(0,10).reverse().map(s=>s.avgRt/1000);
-  const daySet=new Set(history.map(s=>new Date(s.finishedAt).toISOString().slice(0,10)));
-  const now=new Date();
-  const calendar=Array.from({length:35},(_,i)=>{const d=new Date(now);d.setDate(now.getDate()-(34-i));return d.toISOString().slice(0,10);});
-  return <main className="app-frame screen-stack">
-    <div className="topbar"><button className="icon-button" onClick={()=>navigate("home")} aria-label="Back">←</button><div className="eyebrow">HISTORY</div><div style={{width:44}}/></div>
-    <div><h1 className="section-title">Proof<br/>of practice.</h1><p className="body-copy">Small sessions add up. The trend is the thing.</p></div>
-    {history.length===0?<div className="panel empty-state"><div className="hero-mark" style={{margin:"0 auto 18px"}}>↗</div><strong>No sessions yet.</strong><p className="body-copy">Your first result becomes the baseline.</p></div>:<>
-      <div className="panel history-chart"><div className="eyebrow">ACCURACY · LAST 10</div><div style={{fontSize:28,fontWeight:850,marginTop:5}}>{Math.round((recent[0]?.accuracy??0)*100)}%</div><Sparkline values={accuracy}/><div className="eyebrow" style={{marginTop:16}}>RESPONSE · LAST 10</div><div style={{fontSize:28,fontWeight:850,marginTop:5}}>{recent[0]?.avgRt?(recent[0].avgRt/1000).toFixed(2)+"s":"—"}</div><Sparkline values={response}/></div>
-      <div className="panel"><div className="eyebrow" style={{marginBottom:12}}>CONSISTENCY · 5 WEEKS</div><div className="streak-grid">{calendar.map(day=><span key={day} className={"streak-cell "+(daySet.has(day)?"active":"")} title={day}/>)}</div></div>
-      <div className="panel"><div className="eyebrow">SESSIONS</div><div className="history-list" style={{marginTop:4}}>{recent.map(session=>
-        <button key={session.id} className="session-row" onClick={()=>setSelected(session)} style={{width:"100%",background:"transparent",color:"inherit",textAlign:"left",cursor:"pointer"}}>
-          <div><div className="row-title">{session.activity.toUpperCase()} · {modeLabel(session.requestedMode)}</div><div className="row-sub">{date(session.finishedAt)} · {duration(session.durationSeconds)} · {session.challenges} challenges</div></div>
-          <div className="display-face" style={{fontSize:28,color:"var(--activity)"}}>{Math.round(session.accuracy*100)}%</div>
+function ConsistencyStrip({ history }: { history: SessionResult[] }) {
+  const today = startOfDay(Date.now());
+  // Five full weeks ending with this week, Monday first.
+  const dow = (new Date(today).getDay() + 6) % 7;
+  const first = today - (dow + 28) * DAY;
+  const days = new Set(history.map((h) => startOfDay(h.startedAt)));
+  const cells = Array.from({ length: 35 }, (_, i) => first + i * DAY);
+  const active = cells.filter((c) => days.has(c)).length;
+  return (
+    <div style={{ marginTop: 24 }}>
+      <div className="trend-head">
+        <span className="t-17">Last five weeks</span>
+        <strong className="num">
+          {active} {active === 1 ? "day" : "days"}
+        </strong>
+      </div>
+      <div className="strip" role="img" aria-label={`Trained on ${active} of the last 35 days`}>
+        {cells.map((c) => (
+          <span key={c} className={`strip-day${days.has(c) ? " on" : ""}${c === today ? " today" : ""}`} style={c > today ? { opacity: 0.35 } : undefined} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Detail({ r, onClose }: { r: SessionResult; onClose: () => void }) {
+  const cost = switchCostText(r.switchCost);
+  const rows: Array<[string, string]> = [
+    ["Accuracy", `${pct(r.accuracy)}%`],
+    ["Duration", minutesLabel(r.durationSeconds)],
+    ["Challenges", String(r.challenges)],
+    ["Average response", secs(r.avgRt)],
+    ["Best streak", String(r.bestStreak)],
+  ];
+  return (
+    <Sheet title={`${ACTIVITY_LABEL[r.activity]}, ${MODE_INFO[r.requestedMode].label}`} onClose={onClose}>
+      <p className="t-14" style={{ color: "var(--muted)" }}>
+        {new Date(r.startedAt).toLocaleString(undefined, { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+      </p>
+      <div className="stats" style={{ marginTop: 12 }}>
+        {rows.map(([k, v]) => (
+          <div className="stat" key={k} style={{ borderTopWidth: 1, borderColor: "var(--rule)" }}>
+            <span className="stat-label">{k}</span>
+            <span className="stat-value num">{v}</span>
+          </div>
+        ))}
+        {cost && (
+          <div className="stat" style={{ borderTopWidth: 1, borderColor: "var(--rule)" }}>
+            <span className="stat-label">Switch cost</span>
+            <span className="stat-delta">{cost}</span>
+          </div>
+        )}
+      </div>
+      <p className="t-17" style={{ marginTop: 16 }}>
+        {sessionNote(r)}
+      </p>
+    </Sheet>
+  );
+}
+
+export function HistoryScreen() {
+  const history = useStore((s) => s.history);
+  const go = useStore((s) => s.go);
+  const setupMode = useStore((s) => s.setup.mode);
+  const [mode, setMode] = React.useState<ModeChoice>(setupMode);
+  const [detail, setDetail] = React.useState<SessionResult | null>(null);
+  const forMode = history.filter((h) => h.requestedMode === mode && !h.guided);
+  const series = [...forMode].reverse().slice(-20);
+
+  return (
+    <main className="screen paper">
+      <div className="back-row">
+        <button className="icon-btn" onClick={() => go("home")} aria-label="Back to Home" style={{ marginLeft: -12 }}>
+          <BackIcon />
         </button>
-      )}</div></div>
-    </>}
-    {selected&&<div className="panel" style={{borderColor:"rgba(var(--activity-rgb),.28)"}}>
-      <div className="topbar" style={{minHeight:24}}><div className="eyebrow">SESSION DETAIL</div><button className="icon-button" style={{width:34,height:34,borderRadius:10}} onClick={()=>setSelected(null)} aria-label="Close">×</button></div>
-      <div style={{fontSize:32,fontWeight:850,letterSpacing:"-.05em",marginTop:10}}>{Math.round(selected.accuracy*100)}%</div>
-      <div className="stat-row" style={{marginTop:12}}><div className="stat"><div className="stat-value">{duration(selected.durationSeconds)}</div><div className="stat-label">DURATION</div></div><div className="stat"><div className="stat-value">{selected.bestStreak}</div><div className="stat-label">BEST STREAK</div></div><div className="stat"><div className="stat-value">{selected.totalScore}</div><div className="stat-label">SCORE</div></div></div>
-    </div>}
-    <BottomNav active="history" navigate={navigate}/>
-  </main>;
+      </div>
+      <h1 className="display page-title">History</h1>
+      {history.length === 0 ? (
+        <>
+          <p className="empty">No sessions yet. Start one and your first result becomes your baseline.</p>
+          <div className="grow" />
+          <button className="btn-primary" onClick={() => go("home")}>
+            Go to Start
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="chips" role="radiogroup" aria-label="Mode">
+            {MODE_CHOICES.map((m) => (
+              <button key={m} role="radio" aria-checked={m === mode} className="chip" onClick={() => setMode(m)}>
+                {MODE_INFO[m].label}
+              </button>
+            ))}
+          </div>
+          {forMode.length === 0 ? (
+            <p className="empty" style={{ fontSize: "var(--fs-17)" }}>
+              No {MODE_INFO[mode].label} sessions yet. Pick another mode above, or choose {MODE_INFO[mode].label} under Change on Home.
+            </p>
+          ) : (
+            <>
+              <Trend title="Accuracy" values={series.map((h) => ({ v: h.accuracy, t: h.startedAt }))} format={(v) => `${pct(v)}%`} />
+              <Trend title="Average response" values={series.map((h) => ({ v: h.avgRt, t: h.startedAt }))} format={secs} invert />
+            </>
+          )}
+          <ConsistencyStrip history={history} />
+          <h2 className="t-24" style={{ marginTop: 28, fontWeight: 700 }}>
+            Sessions
+          </h2>
+          <div className="session-list">
+            {history.map((h) => (
+              <button key={h.id} className="session-item" onClick={() => setDetail(h)} data-activity={h.activity}>
+                <span className="swatch" aria-hidden="true" />
+                <span className="stack">
+                  <span className="t-17" style={{ fontWeight: 650 }}>
+                    {ACTIVITY_LABEL[h.activity]}, {h.guided ? "first round" : MODE_INFO[h.requestedMode].label}
+                  </span>
+                  <span className="meta">
+                    {new Date(h.startedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}, {minutesLabel(h.durationSeconds)}, {h.challenges}{" "}
+                    challenges
+                  </span>
+                </span>
+                <span className="acc num">{pct(h.accuracy)}%</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      {detail && <Detail r={detail} onClose={() => setDetail(null)} />}
+    </main>
+  );
 }

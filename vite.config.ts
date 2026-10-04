@@ -7,32 +7,36 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "prompt",
-      includeAssets: ["favicon.svg", "icon.svg"],
+      injectRegister: false,
+      includeAssets: ["favicon.svg", "apple-touch-icon.png", "fonts/*.woff2", "privacy.html"],
       workbox: {
-        globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest}"]
+        // Everything, including the rhyme word list, is precached: the app is fully offline after one load.
+        globPatterns: ["**/*.{js,css,html,svg,png,woff2,txt,webmanifest}"],
+        globIgnores: ["splash/**", "og-image.png", "twitter-card.png"],
+        maximumFileSizeToCacheInBytes: 3_000_000,
+        navigateFallbackDenylist: [/^\/privacy/],
       },
       manifest: {
+        id: "/",
         name: "CardioBrain",
         short_name: "CardioBrain",
-        description: "Train your body. Keep your mind sharp.",
+        description: "Quick brain challenges you play while you move.",
         start_url: "/",
         scope: "/",
         display: "standalone",
         orientation: "portrait",
-        background_color: "#05060A",
-        theme_color: "#05060A",
+        background_color: "#16181D",
+        theme_color: "#16181D",
         lang: "en",
+        categories: ["health", "fitness"],
         icons: [
-          { src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
-          { src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "maskable" }
-        ]
-      }
-    })
+          { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "/icons/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+        ],
+      },
+    }),
   ],
-  server: {
-    host: true
-  },
-  build: {
-    target: "es2022"
-  }
+  server: { host: true },
+  build: { target: "es2022" },
 });

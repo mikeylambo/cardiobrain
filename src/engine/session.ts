@@ -1,23 +1,17 @@
-import type { SessionStatus } from "./types";
+import type { DurationChoice } from "./types";
 
-export type SessionEvent = "BEGIN_COUNTDOWN" | "COUNTDOWN_DONE" | "PAUSE" | "RESUME" | "FINISH" | "RESET";
-
-const transitions: Record<SessionStatus, Partial<Record<SessionEvent, SessionStatus>>> = {
-  idle: { BEGIN_COUNTDOWN: "countdown", RESET: "idle" },
-  countdown: { COUNTDOWN_DONE: "running", RESET: "idle" },
-  running: { PAUSE: "paused", FINISH: "finished", RESET: "idle" },
-  paused: { RESUME: "countdown", FINISH: "finished", RESET: "idle" },
-  finished: { RESET: "idle", BEGIN_COUNTDOWN: "countdown" }
-};
-
-export function transition(status: SessionStatus, event: SessionEvent): SessionStatus {
-  return transitions[status][event] ?? status;
-}
+export const DURATION_SECONDS: Record<Exclude<DurationChoice, "open">, number> = { 10: 600, 20: 1200, 30: 1800 };
+export const GUIDED_SECONDS = 30;
+/** A session saved less than this long ago is offered back on Home. */
+export const RESUME_WINDOW_MS = 30 * 60_000;
+/** Backgrounded longer than this, the session pauses itself. */
+export const AUTO_PAUSE_MS = 3_000;
 
 export function makeSessionId(timestamp = Date.now()): string {
   return `cb-${timestamp.toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-export function sortRecent<T extends { timestamp?: number; startedAt?: number }>(items: T[]): T[] {
-  return [...items].sort((a, b) => (b.timestamp ?? b.startedAt ?? 0) - (a.timestamp ?? a.startedAt ?? 0));
+export function formatClock(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }

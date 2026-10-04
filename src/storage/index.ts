@@ -1,62 +1,127 @@
 import { createStore, del, get, set } from "idb-keyval";
-import type { SessionResult } from "../engine/types";
-import type { ActiveSessionSnapshot, PersistedProgress, UserPrefs } from "../state/store";
+import type { Activity, DifficultyBias, DurationChoice, ModeChoice, ModeId, SessionResult } from "../engine/types";
+import type { DifficultyState } from "../engine/difficulty";
 
-const db = createStore("cardiobrain", "cardiobrain-data");
-const HISTORY_KEY = "history";
-const ACTIVE_KEY = "active-session";
-const PREFS_KEY = "prefs";
-const PROGRESS_KEY = "progress";
-
-export async function loadHistory(): Promise<SessionResult[]> {
-  try { return (await get<SessionResult[]>(HISTORY_KEY, db)) ?? []; } catch { return []; }
+export interface UserPrefs {
+  sound: boolean;
+  haptics: boolean;
+  reducedMotion: boolean;
+  difficultyBias: DifficultyBias;
 }
 
-export async function saveHistory(history: SessionResult[]): Promise<boolean> {
-  try { await set(HISTORY_KEY, history.slice(0, 200), db); return true; } catch { return false; }
+export interface SessionSetup {
+  activity: Activity;
+  mode: ModeChoice;
+  duration: DurationChoice;
 }
 
-export async function saveActiveSession(active: ActiveSessionSnapshot): Promise<boolean> {
-  try { await set(ACTIVE_KEY, active, db); return true; } catch { return false; }
+export interface Flags {
+  onboarded: boolean;
+  installOffered: boolean;
 }
 
-export async function loadActiveSession(): Promise<ActiveSessionSnapshot | undefined> {
-  try { return await get<ActiveSessionSnapshot>(ACTIVE_KEY, db); } catch { return undefined; }
+export type PersistedProgress = Partial<Record<ModeId, DifficultyState>>;
+
+export const DEFAULT_PREFS: UserPrefs = { sound: true, haptics: true, reducedMotion: false, difficultyBias: "standard" };
+export const DEFAULT_SETUP: SessionSetup = { activity: "walk", mode: "mix", duration: 20 };
+export const DEFAULT_FLAGS: Flags = { onboarded: false, installOffered: false };
+
+// IndexedDB can be unavailable (private windows, storage pressure). Every call degrades
+// to an in-memory copy and reports the failure once so the app can say so quietly.
+let idb: ReturnType<typeof createStore> | null = null;
+function store() {
+  if (!idb) idb = createStore("cardiobrain", "cardiobrain-data");
+  return idb;
+}
+const memory = new Map<string, unknown>();
+let failureListener: (() => void) | null = null;
+let failed = false;
+export function onStorageFailure(listener: () => void): void {
+  failureListener = listener;
+  if (failed) listener();
+}
+function reportFailure() {
+  if (!failed) {
+    failed = true;
+    failureListener?.();
+  }
 }
 
-export async function clearActiveSession(): Promise<void> {
-  try { await del(ACTIVE_KEY, db); } catch { /* degrade silently */ }
-}
-
-export function loadPrefs(): UserPrefs {
+async function read<T>(key: string): Promise<T | undefined> {
   try {
-    const raw = localStorage.getItem(PREFS_KEY);
-    return raw ? { sound: true, haptics: true, reducedMotion: false, difficultyBias: "standard", ...JSON.parse(raw) } : { sound:true,haptics:true,reducedMotion:false,difficultyBias:"standard" };
-  } catch { return { sound:true,haptics:true,reducedMotion:false,difficultyBias:"standard" }; }
+    return (await get<T>(key, store())) ?? (memory.get(key) as T | undefined);
+  } catch {
+    reportFailure();
+    return memory.get(key) as T | undefined;
+  }
 }
 
-export function savePrefs(prefs: UserPrefs): void {
-  try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch { /* in-memory fallback */ }
-}
-
-export function loadProgress(): PersistedProgress {
+async function write(key: string, value: unknown): Promise<void> {
+  memory.set(key, value);
   try {
-    const raw = localStorage.getItem(PROGRESS_KEY);
-    return raw ? JSON.parse(raw) as PersistedProgress : {};
-  } catch { return {}; }
+    await set(key, value, store());
+  } catch {
+    reportFailure();
+  }
 }
 
-export function saveProgress(progress: PersistedProgress): void {
-  try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress)); } catch { /* in-memory fallback */ }
+async function remove(key: string): Promise<void> {
+  memory.delete(key);
+  try {
+    await del(key, store());
+  } catch {
+    reportFailure();
+  }
 }
 
-export async function exportData(history: SessionResult[], progress: PersistedProgress, prefs: UserPrefs): Promise<void> {
-  const payload = JSON.stringify({ exportedAt: new Date().toISOString(), app: "CardioBrain", version: "1.0.0", history, progress, prefs }, null, 2);
-  const blob = new Blob([payload], { type: "application/json" });
+export const loadHistory = async () => (await read<SessionResult[]>("history")) ?? [];
+export const saveHistory = (history: SessionResult[]) => write("history", history.slice(0, 300));
+export const loadActiveSession = <T>() => read<T>("active-session");
+export const saveActiveSession = (snapshot: unknown) => write("active-session", snapshot);
+export const clearActiveSession = () => remove("active-session");
+export const clearHistory = () => remove("history");
+
+function readLocal<T extends object>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? { ...fallback, ...(JSON.parse(raw) as Partial<T>) } : { ...fallback };
+  } catch {
+    return { ...fallback };
+  }
+}
+function writeLocal(key: string, value: unknown): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Preferences live in memory for this visit.
+  }
+}
+
+export const loadPrefs = () => readLocal("cb-prefs", DEFAULT_PREFS);
+export const savePrefs = (prefs: UserPrefs) => writeLocal("cb-prefs", prefs);
+export const loadSetup = () => readLocal("cb-setup", DEFAULT_SETUP);
+export const saveSetup = (setup: SessionSetup) => writeLocal("cb-setup", setup);
+export const loadFlags = () => readLocal("cb-flags", DEFAULT_FLAGS);
+export const saveFlags = (flags: Flags) => writeLocal("cb-flags", flags);
+export const loadProgress = () => readLocal<PersistedProgress>("cb-progress", {});
+export const saveProgress = (progress: PersistedProgress) => writeLocal("cb-progress", progress);
+
+export function clearLocal(): void {
+  try {
+    for (const key of ["cb-prefs", "cb-setup", "cb-flags", "cb-progress"]) localStorage.removeItem(key);
+  } catch {
+    // Nothing stored.
+  }
+}
+
+export function exportData(payload: object): void {
+  const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), app: "CardioBrain", ...payload }, null, 2)], {
+    type: "application/json",
+  });
   const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `cardiobrain-export-${new Date().toISOString().slice(0,10)}.json`;
-  anchor.click();
-  URL.revokeObjectURL(url);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `cardiobrain-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

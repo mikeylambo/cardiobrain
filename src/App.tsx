@@ -1,54 +1,69 @@
 import React from "react";
-import { unlockAudio } from "./audio/synth";
-import { useCardioStore } from "./state/store";
-import { HomeScreen } from "./ui/HomeScreen";
-import { SetupScreen } from "./ui/SetupScreen";
-import { CountdownScreen } from "./ui/CountdownScreen";
-import { SessionScreen } from "./ui/SessionScreen";
-import { ResultsScreen } from "./ui/ResultsScreen";
+import { setSoundEnabled, unlockAudio } from "./audio/synth";
+import { setHapticsEnabled } from "./haptics";
+import { hideSplash, setStatusBar } from "./platform/native";
+import { onStorageFailure } from "./storage";
+import { useStore, type Screen } from "./state/store";
+import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { HistoryScreen } from "./ui/HistoryScreen";
+import { HomeScreen } from "./ui/HomeScreen";
+import { WelcomeScreen } from "./ui/OnboardingScreen";
+import { ResultsScreen } from "./ui/ResultsScreen";
+import { SessionScreen } from "./ui/SessionScreen";
 import { SettingsScreen } from "./ui/SettingsScreen";
-import { OnboardingScreen } from "./ui/OnboardingScreen";
-import { UpdateToast } from "./ui/UpdateToast";
+import { ACTIVITY_COLOR, ACTIVITY_ON } from "./ui/copy";
 
-export default function App(){
-  const screen=useCardioStore(s=>s.screen);
-  const hydrated=useCardioStore(s=>s.hydrated);
-  const hydrate=useCardioStore(s=>s.hydrate);
-  const onboardingDone=useCardioStore(s=>s.onboardingDone);
-  const resumeAvailable=useCardioStore(s=>s.resumeAvailable);
-  const setScreen=useCardioStore(s=>s.setScreen);
-  const active=useCardioStore(s=>s.active);
-  const setupActivity=useCardioStore(s=>s.setup.activity);
+const PAPER = new Set<Screen>(["history", "settings"]);
+const INK = new Set<Screen>(["welcome", "boot"]);
 
-  React.useEffect(()=>{void hydrate();},[hydrate]);
-  React.useEffect(()=>{
-    if(hydrated&&screen==="home"&&!onboardingDone&&!resumeAvailable)setScreen("onboarding");
-  },[hydrated,onboardingDone,resumeAvailable,screen,setScreen]);
+export function App() {
+  const screen = useStore((s) => s.screen);
+  const boot = useStore((s) => s.boot);
+  const prefs = useStore((s) => s.prefs);
+  const activity = useStore((s) => s.active?.activity ?? s.lastResult?.activity ?? s.setup.activity);
+  const sessionPhase = useStore((s) => s.active?.phase);
+  const [storageNotice, setStorageNotice] = React.useState(false);
 
-  React.useEffect(()=>{document.body.dataset.activity=active?.activity??setupActivity;},[active?.activity,setupActivity]);
+  React.useEffect(() => {
+    void boot().then(() => hideSplash());
+    onStorageFailure(() => setStorageNotice(true));
+    const unlock = () => unlockAudio();
+    window.addEventListener("pointerdown", unlock, { once: true });
+    return () => window.removeEventListener("pointerdown", unlock);
+  }, [boot]);
 
-  React.useEffect(()=>{
-    const unlock=()=>{void unlockAudio();};
-    window.addEventListener("pointerdown",unlock,{once:true});
-    return ()=>window.removeEventListener("pointerdown",unlock);
-  },[]);
+  React.useEffect(() => {
+    setSoundEnabled(prefs.sound);
+    setHapticsEnabled(prefs.haptics);
+    document.documentElement.classList.toggle("reduce-motion", prefs.reducedMotion);
+  }, [prefs]);
 
-  if(!hydrated)return <main className="app-frame"><div className="countdown"><div className="eyebrow">LOADING</div></div></main>;
+  // Browser chrome and the native status bar follow the surface on screen.
+  React.useEffect(() => {
+    const paused = screen === "session" && sessionPhase === "paused";
+    const color = PAPER.has(screen) ? "#F4F4F1" : INK.has(screen) || paused ? "#16181D" : ACTIVITY_COLOR[activity];
+    const darkText = PAPER.has(screen) || (!INK.has(screen) && !paused && ACTIVITY_ON[activity] !== "#FFFFFF");
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", color);
+    document.documentElement.style.background = color;
+    void setStatusBar(!darkText, color);
+  }, [screen, activity, sessionPhase]);
 
-  const navigate=(destination:"home"|"setup"|"history"|"settings")=>setScreen(destination);
-  return <>
-    {screen==="onboarding"&&<OnboardingScreen/>}
-    {screen==="home"&&<HomeScreen navigate={navigate}/>}
-    {screen==="setup"&&<SetupScreen onBack={()=>setScreen("home")}/>}
-    {screen==="countdown"&&<CountdownScreen/>}
-    {screen==="session"&&<SessionScreen/>}
-    {screen==="results"&&<ResultsScreen navigate={navigate}/>}
-    {screen==="history"&&<HistoryScreen navigate={navigate}/>}
-    {screen==="settings"&&<SettingsScreen navigate={navigate}/>}
-    <UpdateToast/>
-    <div style={{position:"fixed",width:1,height:1,overflow:"hidden",clipPath:"inset(50%)"}} aria-live="polite">
-      {screen==="results"?"Session complete":screen==="session"?"Session in progress":""}
-    </div>
-  </>;
+  return (
+    <ErrorBoundary>
+      {screen === "welcome" && <WelcomeScreen />}
+      {screen === "home" && <HomeScreen />}
+      {screen === "session" && <SessionScreen />}
+      {screen === "results" && <ResultsScreen />}
+      {screen === "history" && <HistoryScreen />}
+      {screen === "settings" && <SettingsScreen />}
+      {storageNotice && screen !== "session" && (
+        <div className="toast" role="status">
+          <span>Storage is unavailable, so results last until you close the app.</span>
+          <button className="btn-text" onClick={() => setStorageNotice(false)}>
+            OK
+          </button>
+        </div>
+      )}
+    </ErrorBoundary>
+  );
 }

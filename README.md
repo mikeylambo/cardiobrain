@@ -5,6 +5,7 @@
 CardioBrain is a mobile-first cognitive training PWA designed for walking, biking, stairs, and running. The screen is deliberately glanceable: one huge stimulus, huge tap targets, no typing while moving.
 
 ## What ships
+
 - Numbers, Switch, React, Recall, and Rhyme Rush
 - Mix rotation across all five modes
 - Adaptive difficulty across 20 levels per mode
@@ -19,6 +20,7 @@ CardioBrain is a mobile-first cognitive training PWA designed for walking, bikin
 Live: https://cardiobrain.vercel.app
 
 For a useful moving test:
+
 1. Open CardioBrain on your phone and add it to the Home Screen.
 2. Start with a 10-minute Walk session on Standard difficulty.
 3. Use Mix and keep the phone where each large answer pad is easy to hit safely.

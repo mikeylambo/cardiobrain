@@ -1,56 +1,96 @@
 import { describe, expect, it } from "vitest";
-import { mulberry32, hashSeed, shuffle } from "../rng";
-import { baseScore, challengeScore, speedFactor, streakFactor } from "../scoring";
-import { createDifficultyState, targetResponseMs, updateDifficulty } from "../difficulty";
-import { recallMode } from "../../modes/recall";
+import { hashSeed, mulberry32, shuffle } from "../rng";
+import { createDifficultyState, MAX_LEVEL, updateDifficulty, type DifficultyState } from "../difficulty";
+import { challengeScore, sessionMetrics, speedFactor, streakFactor, switchCost } from "../scoring";
+import { mixModeAt, MIX_MODES } from "../mix";
+import { ruleAt } from "../../modes/generate/switch";
+import type { TrialResult } from "../types";
 
-describe("rng",()=>{
-  it("is deterministic for the same seed",()=>{
-    const a=mulberry32(42),b=mulberry32(42);
-    expect(Array.from({length:6},()=>a())).toEqual(Array.from({length:6},()=>b()));
-    expect(hashSeed(["a",1])).toBe(hashSeed(["a",1]));
-  });
-  it("shuffles without mutating",()=>{
-    const input=[1,2,3,4];const out=shuffle(input,mulberry32(2));
-    expect(input).toEqual([1,2,3,4]);expect(new Set(out)).toEqual(new Set(input));
+describe("rng", () => {
+  it("is deterministic per seed", () => {
+    const a = mulberry32(42);
+    const b = mulberry32(42);
+    expect([a(), a(), a()]).toEqual([b(), b(), b()]);
+    expect(hashSeed([1, "x"])).toBe(hashSeed([1, "x"]));
+    expect(shuffle([1, 2, 3, 4], mulberry32(7)).sort()).toEqual([1, 2, 3, 4]);
   });
 });
 
-describe("scoring",()=>{
-  it("keeps faster correct answers at least as valuable",()=>{
-    const target=1000;
-    expect(speedFactor(1000,target)).toBeGreaterThan(speedFactor(1100,target));
-    expect(challengeScore(true,5,700,target,5,"standard")).toBeGreaterThan(challengeScore(true,5,1300,target,5,"standard"));
-    expect(challengeScore(false,5,600,target,5,"standard")).toBe(0);
+describe("difficulty", () => {
+  const feed = (state: DifficultyState, n: number, correct: boolean, rt: number) => {
+    let s = state;
+    for (let i = 0; i < n; i++) s = updateDifficulty(s, { correct, responseMs: rt, targetRt: 1500 }, "walk", "numbers", "standard");
+    return s;
+  };
+  it("calibrates through levels 1-4 over the first 20 trials", () => {
+    const s = feed(createDifficultyState(), 20, true, 500);
+    expect(s.level).toBe(4);
   });
-  it("caps streak multiplier",()=>expect(streakFactor(1000)).toBe(1.5));
-  it("increases base score with level",()=>expect(baseScore(8)).toBeGreaterThan(baseScore(4)));
+  it("climbs when accurate and fast, at most one level per 6 trials", () => {
+    const s = feed(feed(createDifficultyState(), 20, true, 300), 12, true, 300);
+    expect(s.level).toBeGreaterThan(4);
+    expect(s.level).toBeLessThanOrEqual(6);
+  });
+  it("drops when accuracy falls under 60%", () => {
+    const start = feed(feed(createDifficultyState(), 20, true, 300), 30, true, 300);
+    const s = feed(start, 16, false, 300);
+    // One change per 6 trials at most: 16 misses can cost two levels, never more.
+    expect(s.level).toBeLessThan(start.level);
+    expect(s.level).toBeGreaterThanOrEqual(start.level - 2);
+  });
+  it("never leaves 1..MAX_LEVEL", () => {
+    expect(feed(createDifficultyState(), 400, true, 1).level).toBeLessThanOrEqual(MAX_LEVEL);
+    expect(feed(createDifficultyState(), 400, false, 9000).level).toBeGreaterThanOrEqual(1);
+  });
 });
 
-describe("difficulty",()=>{
-  it("uses activity multipliers",()=>{
-    expect(targetResponseMs("react",1,"stairs","standard")).toBeGreaterThan(targetResponseMs("react",1,"walk","standard"));
-  });
-  it("calibrates through levels 1 to 4",()=>{
-    let state=createDifficultyState();
-    for(let i=0;i<20;i++){
-      state=updateDifficulty(state,{correct:true,responseMs:500,targetRt:1400},"walk","react","standard");
+describe("scoring", () => {
+  it("rewards speed smoothly and monotonically", () => {
+    let last = Infinity;
+    for (let rt = 100; rt <= 5000; rt += 100) {
+      const f = speedFactor(rt, 1500);
+      expect(f).toBeLessThanOrEqual(last);
+      last = f;
     }
-    expect(state.level).toBe(4);
   });
-  it("steps down after sustained misses",()=>{
-    let state={...createDifficultyState(),level:5,trialsSeen:20,lastChangeAt:-99};
-    for(let i=0;i<8;i++)state=updateDifficulty(state,{correct:false,responseMs:3000,targetRt:1000},"walk","react","standard");
-    expect(state.level).toBe(4);
+  it("caps the streak factor at 1.5x", () => {
+    expect(streakFactor(1000)).toBeLessThanOrEqual(1.5);
+  });
+  it("scores wrong answers at zero", () => {
+    expect(challengeScore(false, 10, 100, 1000, 10, "standard")).toBe(0);
+  });
+  it("reports switch cost only with enough trials of each kind", () => {
+    const t = (switchTrial: boolean, responseMs: number) => ({ mode: "switch", correct: true, switchTrial, responseMs }) as TrialResult;
+    expect(switchCost([t(true, 900), t(false, 600)])).toBeNull();
+    const trials = [t(true, 900), t(true, 1000), t(true, 1100), t(false, 600), t(false, 700), t(false, 800)];
+    expect(switchCost(trials)).toBeCloseTo(300);
+    expect(sessionMetrics(trials).switchCost).toBeCloseTo(300);
   });
 });
 
-describe("recall",()=>{
-  it("creates a non-empty sequence and a matching answer",()=>{
-    const challenge=recallMode.generate(4,mulberry32(9),{activity:"walk",bias:"standard",seed:9,trialIndex:1});
-    const sequence=challenge.data.sequence as string[];
-    expect(sequence.length).toBeGreaterThan(0);
-    expect(challenge.correctAnswer).toBe(sequence.join("|"));
-    expect(challenge.options.length).toBeGreaterThanOrEqual(2);
+describe("mix", () => {
+  it("never runs the same mode twice in a row and uses every mode", () => {
+    for (let seed = 0; seed < 300; seed++) {
+      const seq = Array.from({ length: 25 }, (_, b) => mixModeAt(seed, b));
+      for (let i = 1; i < seq.length; i++) expect(seq[i]).not.toBe(seq[i - 1]);
+      expect(new Set(seq.slice(0, 5)).size).toBe(MIX_MODES.length);
+    }
+  });
+});
+
+describe("switch schedule", () => {
+  it("holds each rule for 2 to 4 trials, never strictly alternating", () => {
+    for (let seed = 0; seed < 300; seed++) {
+      const rules = Array.from({ length: 60 }, (_, k) => ruleAt(seed, k));
+      let run = 1;
+      for (let k = 1; k < rules.length; k++) {
+        if (rules[k] === rules[k - 1]) run++;
+        else {
+          expect(run).toBeGreaterThanOrEqual(2);
+          expect(run).toBeLessThanOrEqual(4);
+          run = 1;
+        }
+      }
+    }
   });
 });

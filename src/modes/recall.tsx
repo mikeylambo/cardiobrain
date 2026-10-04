@@ -1,169 +1,111 @@
 import React from "react";
-import { motion } from "framer-motion";
-import type { Challenge, ModeDefinition } from "../engine/types";
-import { pick, shuffle } from "../engine/rng";
-import { targetResponseMs } from "../engine/difficulty";
+import { sfx } from "../audio/synth";
+import { haptics } from "../haptics";
+import { SHAPE_LABEL, type Shape } from "./generate/recall";
+import type { ModeViewProps } from "./shared";
+import { feedbackFor, Tiles } from "./shared";
+import { ShapeGlyph, UndoIcon } from "../ui/components";
 
-export const RECALL_SHAPE_IDS = ["circle","triangle","square","diamond","star","plus"] as const;
-type RecallShapeId = typeof RECALL_SHAPE_IDS[number];
+const GAP_MS = 180;
 
-const shapeLabels: Record<RecallShapeId,string> = {
-  circle: "Circle",
-  triangle: "Triangle",
-  square: "Square",
-  diamond: "Diamond",
-  star: "Star",
-  plus: "Plus"
-};
+export function RecallView({ challenge, onAnswer, onPresented, feedback }: ModeViewProps) {
+  const { sequence, stepMs } = challenge.data as { sequence: Shape[]; stepMs: number };
+  const [step, setStep] = React.useState(-1); // index being shown; -1 before the first
+  const [visible, setVisible] = React.useState(false);
+  const [input, setInput] = React.useState<Shape[]>([]);
+  const [pressed, setPressed] = React.useState<string | null>(null);
+  const fb = feedbackFor(feedback, challenge);
+  const showing = step < sequence.length;
 
-export const LEGACY_RECALL_SHAPES: Record<string, RecallShapeId> = {
-  "●": "circle",
-  "▲": "triangle",
-  "■": "square",
-  "◆": "diamond",
-  "✦": "star",
-  "✚": "plus"
-};
-
-export function normalizeRecallShapeId(id:string): RecallShapeId | null {
-  if ((RECALL_SHAPE_IDS as readonly string[]).includes(id)) return id as RecallShapeId;
-  return LEGACY_RECALL_SHAPES[id] ?? null;
-}
-
-function ShapeGlyph({id}:{id:string}) {
-  const normalized = normalizeRecallShapeId(id);
-  if (!normalized) return null;
-  const common = { fill: "currentColor" as const };
-  return (
-    <svg className="shape-glyph-svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false" data-shape={normalized}>
-      {normalized === "circle" && <circle cx="32" cy="32" r="22" {...common} />}
-      {normalized === "triangle" && <polygon points="32,7 57,54 7,54" {...common} />}
-      {normalized === "square" && <rect x="10" y="10" width="44" height="44" rx="6" {...common} />}
-      {normalized === "diamond" && <polygon points="32,6 58,32 32,58 6,32" {...common} />}
-      {normalized === "star" && <polygon points="32,5 38.4,24.2 58.7,24.2 42.3,35.8 48.6,55 32,43.2 15.4,55 21.7,35.8 5.3,24.2 25.6,24.2" {...common} />}
-      {normalized === "plus" && <path d="M25 7h14v18h18v14H39v18H25V39H7V25h18V7Z" {...common} />}
-    </svg>
-  );
-}
-
-export const recallMode: ModeDefinition = {
-  id: "recall",
-  group: "core",
-  label: "Recall",
-  shortLabel: "RECALL",
-  description: "Hold a short sequence. Rebuild it from memory.",
-  generate: (level, rng, ctx): Challenge => {
-    const length = Math.min(7, 2 + Math.floor((level - 1) / 3));
-    const sequence = Array.from({length}, () => pick(RECALL_SHAPE_IDS, rng) as RecallShapeId);
-    const options = shuffle(
-      RECALL_SHAPE_IDS.map((id) => ({ id, label: shapeLabels[id] })),
-      rng
-    );
-    return {
-      id: `recall-${level}-${ctx.trialIndex}`,
-      mode: "recall",
-      kind: "recall",
-      level,
-      prompt: "MEMORIZE",
-      options,
-      correctAnswer: sequence.join("|"),
-      targetRt: targetResponseMs("recall", level, ctx.activity, ctx.bias),
-      data: { sequence, displayMs: Math.max(420, 700 - level * 8) }
-    };
-  },
-  View: ({ challenge, onAnswer, onPresented }) => {
-    const data = challenge.data as { sequence: RecallShapeId[]; displayMs:number };
-    const [index, setIndex] = React.useState(0);
-    const [ready, setReady] = React.useState(false);
-    const [picked, setPicked] = React.useState<string[]>([]);
-
-    React.useEffect(() => {
-      let cancelled = false;
-      const timers: number[] = [];
-      setIndex(0);
-      setReady(false);
-      setPicked([]);
-
-      const schedule = (fn: () => void, delay: number) => {
-        timers.push(window.setTimeout(() => {
-          if (!cancelled) fn();
-        }, delay));
-      };
-
-      let current = 0;
-      const showNext = () => {
-        setIndex(current);
-        if (current + 1 < data.sequence.length) {
-          current += 1;
-          schedule(showNext, data.displayMs);
-          return;
-        }
-        schedule(() => {
-          setReady(true);
-          onPresented();
-        }, data.displayMs);
-      };
-
-      schedule(showNext, 80);
-
-      return () => {
-        cancelled = true;
-        timers.forEach((timer) => window.clearTimeout(timer));
-      };
-    }, [challenge.id, data.displayMs, data.sequence.length, onPresented]);
-
-    if (!ready) {
-      const activeShape = data.sequence[index];
-      return (
-        <div className="mode-view recall-show">
-          <div className="eyebrow">MEMORIZE</div>
-          <motion.div
-            key={`${challenge.id}-${index}`}
-            initial={{opacity:0,scale:.7}}
-            animate={{opacity:1,scale:1}}
-            className="recall-symbol"
-            aria-label={shapeLabels[activeShape]}
-          >
-            <ShapeGlyph id={activeShape} />
-          </motion.div>
-          <div className="sequence-dots" aria-label={`Item ${Math.min(index + 1, data.sequence.length)} of ${data.sequence.length}`}>
-            {data.sequence.map((_, i) => <span className={i === index ? "active" : ""} key={i} />)}
-          </div>
-        </div>
+  // Play the sequence: one symbol at a time, a tone each, then hand over.
+  React.useEffect(() => {
+    setStep(-1);
+    setInput([]);
+    const timers: number[] = [];
+    let at = 450;
+    sequence.forEach((shape, i) => {
+      timers.push(
+        window.setTimeout(() => {
+          setStep(i);
+          setVisible(true);
+          sfx.symbol(shape);
+        }, at),
       );
-    }
+      timers.push(window.setTimeout(() => setVisible(false), at + stepMs - GAP_MS));
+      at += stepMs;
+    });
+    timers.push(
+      window.setTimeout(() => {
+        setStep(sequence.length);
+        requestAnimationFrame(() => requestAnimationFrame(() => onPresented()));
+      }, at),
+    );
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, [challenge.id, sequence, stepMs, onPresented]);
 
-    const tap = (shapeId:string) => {
-      if (picked.length >= data.sequence.length) return;
-      const next = [...picked, shapeId];
-      setPicked(next);
-      if (next.length === data.sequence.length) onAnswer(next.join("|"));
-    };
+  React.useEffect(() => {
+    if (!pressed) return;
+    const t = window.setTimeout(() => setPressed(null), 120);
+    return () => window.clearTimeout(t);
+  }, [pressed, input.length]);
 
-    return (
-      <div className="mode-view recall-answer-mode">
-        <div className="eyebrow">REPEAT <span>{picked.length}/{data.sequence.length}</span></div>
-        <div className="recall-slots">
-          {data.sequence.map((_, i) => (
-            <span key={i}>
-              {picked[i] ? <ShapeGlyph id={picked[i]!} /> : "·"}
+  const pick = (id: string) => {
+    if (showing || fb || input.length >= sequence.length) return;
+    const next = [...input, id as Shape];
+    setInput(next);
+    setPressed(id);
+    sfx.symbol(id);
+    haptics.tap();
+    if (next.length === sequence.length) onAnswer(next.join(" "));
+  };
+
+  const cols = challenge.options.length > 4 ? 3 : 2;
+  return (
+    <>
+      <div className="stage">
+        <p className="cue">{showing ? "Watch" : fb ? (fb.correct ? "Exactly right" : "Not quite") : "Now repeat it"}</p>
+        {showing ? (
+          <>
+            <div className="recall-show" aria-hidden="true">
+              {step >= 0 && visible && (
+                <span className="pop" key={step}>
+                  <ShapeGlyph shape={sequence[step]!} />
+                </span>
+              )}
+            </div>
+            <p className="recall-step num">
+              {Math.max(0, step + 1)} of {sequence.length}
+            </p>
+            <p className="sr-only" aria-live="assertive">
+              {step >= 0 ? SHAPE_LABEL[sequence[step]!] : ""}
+            </p>
+          </>
+        ) : (
+          <div className="recall-show" aria-hidden="true" />
+        )}
+      </div>
+      <div className="tray" aria-label={`Your sequence, ${input.length} of ${sequence.length}`}>
+        <div className="tray-slots">
+          {sequence.map((_, i) => (
+            <span key={i} className={`tray-slot${input[i] ? " filled" : ""}`}>
+              {input[i] && <ShapeGlyph shape={input[i]!} />}
             </span>
           ))}
         </div>
-        <div className="answer-grid answer-grid-4 recall-grid">
-          {challenge.options.map((option) => (
-            <motion.button
-              key={option.id}
-              className="answer-pad symbol-pad"
-              whileTap={{scale:.94}}
-              onClick={() => tap(option.id)}
-              aria-label={`Choose ${option.label}`}
-            >
-              <ShapeGlyph id={option.id} />
-            </motion.button>
-          ))}
-        </div>
+        <button className="undo" onClick={() => setInput((s) => s.slice(0, -1))} disabled={showing || !input.length || Boolean(fb)} aria-label="Undo last">
+          <UndoIcon />
+          Undo
+        </button>
       </div>
-    );
-  }
-};
+      <Tiles
+        options={challenge.options}
+        onPick={pick}
+        feedback={null}
+        pressedId={pressed}
+        disabled={showing || Boolean(fb)}
+        cols={cols}
+        render={(o) => <ShapeGlyph shape={o.id as Shape} />}
+      />
+    </>
+  );
+}

@@ -1,56 +1,53 @@
-import { motion } from "framer-motion";
-import type { Challenge, ModeDefinition } from "../engine/types";
-import { targetResponseMs } from "../engine/difficulty";
+import React from "react";
+import { ZONES, type Zone } from "./generate/react";
+import type { ModeViewProps } from "./shared";
+import { feedbackFor, Tiles } from "./shared";
+import { ShapeGlyph } from "../ui/components";
 
-const zones = [
-  { id: "zone-0", label: "↖", className: "zone-nw" },
-  { id: "zone-1", label: "↗", className: "zone-ne" },
-  { id: "zone-2", label: "↙", className: "zone-sw" },
-  { id: "zone-3", label: "↘", className: "zone-se" }
-] as const;
+export function ReactView({ challenge, onAnswer, onPresented, feedback }: ModeViewProps) {
+  const { zone, noGo, decoy, delayMs } = challenge.data as { zone: Zone; noGo: boolean; decoy: Zone | null; delayMs: number };
+  const [shown, setShown] = React.useState(false);
+  const fb = feedbackFor(feedback, challenge);
 
-export const reactMode: ModeDefinition = {
-  id: "react",
-  group: "core",
-  label: "React",
-  shortLabel: "REACT",
-  description: "See it. Locate it. Tap fast.",
-  generate: (level, rng, ctx): Challenge => {
-    const index = Math.floor(rng() * zones.length);
-    const noGo = level >= 14 && rng() < 0.12;
-    const correctAnswer = noGo ? "hold" : zones[index]!.id;
-    return {
-      id: `react-${level}-${ctx.trialIndex}`,
-      mode: "react",
-      kind: "react",
-      level,
-      prompt: noGo ? "HOLD" : "TAP",
-      options: [...zones.map((zone) => ({ id: zone.id, label: zone.label })), { id: "hold", label: "HOLD" }],
-      correctAnswer,
-      targetRt: targetResponseMs("react", level, ctx.activity, ctx.bias),
-      data: { zone: zones[index]!.className, noGo }
+  React.useEffect(() => {
+    setShown(false);
+    let raf = 0;
+    const t = window.setTimeout(() => {
+      setShown(true);
+      // Onset is the frame the target actually paints, not the timer that scheduled it.
+      raf = requestAnimationFrame(() => requestAnimationFrame(() => onPresented()));
+    }, delayMs);
+    return () => {
+      window.clearTimeout(t);
+      cancelAnimationFrame(raf);
     };
-  },
-  View: ({ challenge, onAnswer }) => {
-    const data = challenge.data as { zone:string; noGo:boolean };
-    return (
-      <div className="mode-view react-mode">
-        <div className="eyebrow">{data.noGo ? "HOLD" : "REACT"}</div>
-        <div className="react-field">
-          {!data.noGo && <motion.div key={challenge.id} initial={{scale:.72,opacity:0}} animate={{scale:1,opacity:1}} className={`react-target ${data.zone}`} aria-hidden="true" />}
-          {data.noGo && <motion.div initial={{opacity:0}} animate={{opacity:1}} className="hold-mark">—</motion.div>}
-        </div>
-        <div className="answer-grid answer-grid-4">
-          {zones.map((zone) => (
-            <motion.button key={zone.id} className="answer-pad react-pad" whileTap={{scale:.95}} onClick={() => onAnswer(zone.id)} aria-label={`Tap ${zone.id}`}>
-              {zone.label}
-            </motion.button>
+  }, [challenge.id, delayMs, onPresented]);
+
+  return (
+    <>
+      <div className="stage">
+        <p className="cue">{shown && noGo ? "Hold. Don't tap." : "Tap where it lands"}</p>
+        <div className="react-field" aria-hidden="true">
+          {ZONES.map((z) => (
+            <div className="react-cell" key={z}>
+              {shown && z === zone && <span className="pop">{noGo ? <ShapeGlyph shape="square" /> : <ShapeGlyph shape="circle" />}</span>}
+              {shown && z === decoy && (
+                <span className="pop">
+                  <ShapeGlyph shape="circle" filled={false} />
+                </span>
+              )}
+            </div>
           ))}
-          <motion.button className="answer-pad hold-pad" whileTap={{scale:.95}} onClick={() => onAnswer("hold")} aria-label="Hold">
-            HOLD
-          </motion.button>
         </div>
+        <p className="sr-only" aria-live="assertive">
+          {shown
+            ? noGo
+              ? "Square. Hold."
+              : `Circle, ${zone === "tl" ? "top left" : zone === "tr" ? "top right" : zone === "bl" ? "bottom left" : "bottom right"}.`
+            : ""}
+        </p>
       </div>
-    );
-  }
-};
+      <Tiles options={challenge.options} onPick={onAnswer} feedback={fb} disabled={Boolean(fb)} variant="blank" />
+    </>
+  );
+}

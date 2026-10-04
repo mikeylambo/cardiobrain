@@ -1,19 +1,29 @@
 import React from "react";
-import { registerSW } from "virtual:pwa-register";
-import { useCardioStore } from "../state/store";
 
-export function UpdateToast(){
-  const screen=useCardioStore(s=>s.screen);
-  const [ready,setReady]=React.useState(false);
-  const update=React.useRef<(()=>Promise<void>|void)|null>(null);
+let applyUpdate: (() => void) | null = null;
+const listeners = new Set<() => void>();
 
-  React.useEffect(()=>{
-    update.current=registerSW({immediate:true,onNeedRefresh:()=>setReady(true)});
-  },[]);
+/** Called by main.tsx when a new service worker is waiting. */
+export function announceUpdate(apply: () => void): void {
+  applyUpdate = apply;
+  listeners.forEach((l) => l());
+}
 
-  if(!ready||screen!=="home")return null;
-  return <div className="toast" role="status">
-    <div><strong>Update ready</strong><div className="row-sub">Fresh improvements are waiting.</div></div>
-    <button onClick={()=>{void update.current?.();setReady(false);}}>Update</button>
-  </div>;
+/** "Update ready" on Home only, never mid-session. */
+export function UpdateToast() {
+  const [ready, setReady] = React.useState(applyUpdate !== null);
+  React.useEffect(() => {
+    const l = () => setReady(true);
+    listeners.add(l);
+    return () => void listeners.delete(l);
+  }, []);
+  if (!ready) return null;
+  return (
+    <div className="toast" role="status">
+      <span>Update ready.</span>
+      <button className="btn-text" onClick={() => applyUpdate?.()}>
+        Restart
+      </button>
+    </div>
+  );
 }

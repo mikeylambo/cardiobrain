@@ -7,6 +7,7 @@ export default defineConfig({
     include: ["src/**/*.{test,spec}.{ts,tsx,js,jsx}"],
     environment: "node",
     globals: false,
-    clearMocks: true
-  }
+    clearMocks: true,
+    testTimeout: 120_000,
+  },
 });

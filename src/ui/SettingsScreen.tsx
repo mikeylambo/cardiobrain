@@ -1,34 +1,129 @@
 import React from "react";
-import { useCardioStore } from "../state/store";
+import type { DifficultyBias } from "../engine/types";
+import { haptics } from "../haptics";
+import { useStore } from "../state/store";
 import { exportData } from "../storage";
-import { BottomNav } from "./HomeScreen";
+import { BackIcon, Segmented, Sheet, Toggle } from "./components";
 
-export function SettingsScreen({navigate}:{navigate:(screen:"home"|"setup"|"history"|"settings")=>void}){
-  const prefs=useCardioStore(s=>s.prefs);
-  const update=useCardioStore(s=>s.updatePrefs);
-  const history=useCardioStore(s=>s.history);
-  const progress=useCardioStore(s=>s.progress);
-  const reset=useCardioStore(s=>s.resetData);
-  const [confirm,setConfirm]=React.useState(false);
-  return <main className="app-frame screen-stack">
-    <div className="topbar"><button className="icon-button" onClick={()=>navigate("home")} aria-label="Back">←</button><div className="eyebrow">SETTINGS</div><div style={{width:44}}/></div>
-    <div><h1 className="section-title">Tune the<br/>experience.</h1><p className="body-copy">Everything stays on this device.</p></div>
-    <div className="panel"><div className="eyebrow">FEEDBACK</div>
-      <Toggle label="Sound" copy="Synthesized cues and rule tones." value={prefs.sound} onChange={v=>update({sound:v})}/>
-      <Toggle label="Haptics" copy="Brief tactile cues when supported." value={prefs.haptics} onChange={v=>update({haptics:v})}/>
-      <Toggle label="Reduced motion" copy="Keep the hierarchy, remove flourish." value={prefs.reducedMotion} onChange={v=>update({reducedMotion:v})}/>
-    </div>
-    <div className="panel"><div className="eyebrow">DIFFICULTY BIAS</div><div className="duration-row" style={{marginTop:12}}>{(["gentle","standard","hard"] as const).map(v=><button key={v} className={"chip "+(prefs.difficultyBias===v?"selected":"")} onClick={()=>update({difficultyBias:v})}>{v.toUpperCase()}</button>)}</div><p className="body-copy" style={{marginBottom:0,marginTop:10}}>Bias changes timing and score weight; your learned level stays yours.</p></div>
-    <div className="panel"><div className="eyebrow">YOUR DATA</div>
-      <div className="setting-row"><div><strong>{history.length}</strong><div className="row-sub">stored sessions</div></div><button className="action-secondary" style={{minHeight:44,padding:"0 14px"}} onClick={()=>exportData(history,progress,prefs)}>Export JSON</button></div>
-      <div className="setting-row"><div><strong>Local only</strong><div className="row-sub">No account or server database.</div></div><span style={{color:"var(--activity)"}}>✓</span></div>
-      <div className="setting-row"><div><strong>Reset app</strong><div className="row-sub">History, learned levels, preferences, and onboarding.</div></div><button className="action-secondary" style={{minHeight:44,padding:"0 14px"}} onClick={()=>setConfirm(true)}>Reset app</button></div>
-    </div>
-    {confirm&&<div className="panel" role="alertdialog" aria-label="Reset CardioBrain"><div className="eyebrow">RESET APP</div><strong>Start CardioBrain fresh?</strong><p className="body-copy">This clears sessions, learned levels, preferences, and the onboarding state. It cannot be undone.</p><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><button className="action-secondary" onClick={()=>setConfirm(false)}>Cancel</button><button className="action-primary" onClick={async()=>{await reset();setConfirm(false)}}>Reset app</button></div></div>}
-    <div className="tap-note" style={{textAlign:"center"}}>CARDIOBRAIN 1.0 · OFFLINE-FIRST</div>
-    <BottomNav active="settings" navigate={navigate}/>
-  </main>;
-}
-function Toggle({label,copy,value,onChange}:{label:string;copy:string;value:boolean;onChange:(value:boolean)=>void}){
-  return <div className="setting-row"><div><strong>{label}</strong><div className="row-sub">{copy}</div></div><button className={"toggle "+(value?"on":"")} onClick={()=>onChange(!value)} role="switch" aria-checked={value} aria-label={label}><i/></button></div>;
+const BIAS_NOTE: Record<DifficultyBias, string> = {
+  gentle: "More time to answer and a slower climb. Good for hard efforts.",
+  standard: "Adapts to you as you play. Right for most sessions.",
+  hard: "Less time to answer and a faster climb.",
+};
+
+export function SettingsScreen() {
+  const prefs = useStore((s) => s.prefs);
+  const updatePrefs = useStore((s) => s.updatePrefs);
+  const go = useStore((s) => s.go);
+  const deleteAllData = useStore((s) => s.deleteAllData);
+  const [confirm, setConfirm] = React.useState(false);
+  const [tested, setTested] = React.useState(false);
+  const vibrates = typeof navigator !== "undefined" && "vibrate" in navigator;
+
+  return (
+    <main className="screen paper">
+      <div className="back-row">
+        <button className="icon-btn" onClick={() => go("home")} aria-label="Back to Home" style={{ marginLeft: -12 }}>
+          <BackIcon />
+        </button>
+      </div>
+      <h1 className="display page-title">Settings</h1>
+
+      <div className="setting">
+        <div className="setting-text">
+          <strong>Sound</strong>
+          <span>Chimes for right and wrong answers.</span>
+        </div>
+        <Toggle label="Sound" checked={prefs.sound} onChange={(sound) => updatePrefs({ sound })} />
+      </div>
+      <div className="setting">
+        <div className="setting-text">
+          <strong>Haptics</strong>
+          <span>{tested && !vibrates ? "This browser can't vibrate. Sound and visuals carry feedback." : "A short buzz with each answer."}</span>
+        </div>
+        <div className="btn-row" style={{ gap: 12 }}>
+          <button
+            className="btn-text"
+            onClick={() => {
+              haptics.test();
+              setTested(true);
+            }}
+            disabled={!prefs.haptics}
+          >
+            Test
+          </button>
+          <Toggle label="Haptics" checked={prefs.haptics} onChange={(h) => updatePrefs({ haptics: h })} />
+        </div>
+      </div>
+      <div className="setting">
+        <div className="setting-text">
+          <strong>Reduced motion</strong>
+          <span>Quick fades instead of wipes and width changes.</span>
+        </div>
+        <Toggle label="Reduced motion" checked={prefs.reducedMotion} onChange={(reducedMotion) => updatePrefs({ reducedMotion })} />
+      </div>
+
+      <div style={{ borderTop: "1px solid var(--rule)", paddingTop: 16 }}>
+        <p className="t-17" style={{ fontWeight: 650, marginBottom: 10 }} id="diff-label">
+          Difficulty
+        </p>
+        <Segmented
+          label="Difficulty"
+          cols={3}
+          value={prefs.difficultyBias}
+          onChange={(difficultyBias) => updatePrefs({ difficultyBias })}
+          options={[
+            { value: "gentle", label: "Gentle" },
+            { value: "standard", label: "Standard" },
+            { value: "hard", label: "Hard" },
+          ]}
+        />
+        <p className="bias-note">{BIAS_NOTE[prefs.difficultyBias]}</p>
+      </div>
+
+      <div className="danger-zone">
+        <button
+          className="btn-text"
+          style={{ alignSelf: "flex-start" }}
+          onClick={() => {
+            const s = useStore.getState();
+            exportData({ history: s.history, progress: s.progress, prefs: s.prefs, setup: s.setup });
+          }}
+        >
+          Export data
+        </button>
+        <button className="btn-text" style={{ alignSelf: "flex-start" }} onClick={() => setConfirm(true)}>
+          Delete data
+        </button>
+        <p className="t-14" style={{ color: "var(--muted)", marginTop: 8 }}>
+          Everything stays on this device.{" "}
+          <a href="/privacy" style={{ color: "inherit" }}>
+            Privacy
+          </a>
+        </p>
+      </div>
+
+      {confirm && (
+        <Sheet title="Delete everything?" onClose={() => setConfirm(false)}>
+          <p className="t-17" style={{ marginBottom: 20 }}>
+            This removes your history, levels and settings from this device. It can't be undone.
+          </p>
+          <div className="stack gap-8">
+            <button
+              className="btn-primary"
+              onClick={() => {
+                setConfirm(false);
+                void deleteAllData();
+              }}
+            >
+              Delete data
+            </button>
+            <button className="btn-text" style={{ alignSelf: "center" }} onClick={() => setConfirm(false)}>
+              Keep it
+            </button>
+          </div>
+        </Sheet>
+      )}
+    </main>
+  );
 }
