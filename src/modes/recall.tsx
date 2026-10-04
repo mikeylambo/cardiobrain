@@ -15,8 +15,9 @@ export const recallMode: ModeDefinition = {
   generate: (level, rng, ctx): Challenge => {
     const length = Math.min(7, 2 + Math.floor((level - 1) / 3));
     const sequence = Array.from({length}, () => pick(symbols, rng));
-    const unique = sequence.length >= 5;
-    const answerChoices = unique ? [...new Set(sequence)] : shuffle(symbols, rng).slice(0, 4);
+    const required = [...new Set(sequence)];
+    const fillers = shuffle(symbols.filter((symbol) => !required.includes(symbol)), rng);
+    const answerChoices = [...required, ...fillers].slice(0, Math.max(4, required.length));
     return {
       id: `recall-${level}-${ctx.trialIndex}`,
       mode: "recall",
