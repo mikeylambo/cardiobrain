@@ -94,12 +94,11 @@ test.describe("CardioBrain visual review", () => {
       await expect(page.locator(".answer-pad").first()).toBeVisible({ timeout: 4000 });
       await page.screenshot({ path: `artifacts/mode-${mode.toLowerCase().replace(/[^a-z]+/g, "-")}.png`, fullPage: true });
       if (mode === "Recall") {
-        const shown = page.locator(".recall-symbol .shape-glyph").first();
+        const shown = page.locator(".recall-symbol .shape-glyph-svg").first();
         await expect(shown).toBeVisible({ timeout: 3000 });
-        const classes = await shown.getAttribute("class");
-        const shapeClass = (classes ?? "").split(/\s+/).find((name) => name.startsWith("shape-"));
-        expect(shapeClass).toBeTruthy();
-        await expect(page.locator(`.answer-pad .${shapeClass}`)).toHaveCount(1);
+        const shapeId = await shown.getAttribute("data-shape");
+        expect(shapeId).toBeTruthy();
+        await expect(page.locator(`.answer-pad .shape-glyph-svg[data-shape="${shapeId}"]`)).toHaveCount(1);
       }
       await playUntilResults(page);
     });
