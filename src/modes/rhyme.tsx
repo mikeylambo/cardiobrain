@@ -120,7 +120,10 @@ function perfectChallenge(level:number,rng:()=>number,ctx:Parameters<ModeDefinit
   const query=pick(pool,rng);
   const answer=pick(pool.filter(w=>w.word!==query.word),rng);
   const distractorFamilies=families.filter(f=>f!==family);
-  const distractors=[pick(byFamily(pick(distractorFamilies,rng)),rng),pick(byFamily(pick(distractorFamilies,rng)),rng)];
+  const distractors=shuffle(
+    distractorFamilies.flatMap(f=>byFamily(f)),
+    rng
+  ).filter(w=>w.word!==query.word&&w.word!==answer.word).slice(0,2);
   return makeChallenge("perfect",level,query.word,[answer,...distractors],answer.word,ctx);
 }
 
@@ -128,8 +131,8 @@ function slantChallenge(level:number,rng:()=>number,ctx:Parameters<ModeDefinitio
   const query=pick(WORDS,rng);const candidates=byVowel(query.vowel).filter(w=>w.word!==query.word);
   const scored=candidates.map(w=>({w,score:slantScore(query,w)})).sort((a,b)=>b.score-a.score);
   const answer=scored.find(x=>x.score>=0.65&&x.w.tail!==query.tail)?.w??scored[scored.length>1?1:0]?.w??query;
-  const nonMatches=WORDS.filter(w=>w.word!==query.word&&w.vowel!==query.vowel&&w.tail!==query.tail);
-  const options=shuffle([answer,pick(nonMatches,rng),pick(nonMatches.filter(w=>w.word!==answer.word),rng),pick(nonMatches.filter(w=>w.word!==answer.word),rng)],rng);
+  const nonMatches=shuffle(WORDS.filter(w=>w.word!==query.word&&w.word!==answer.word&&w.vowel!==query.vowel&&w.tail!==query.tail),rng);
+  const options=shuffle([answer,...nonMatches.slice(0,3)],rng);
   return makeChallenge("slant",level,query.word,options,answer.word,ctx);
 }
 
