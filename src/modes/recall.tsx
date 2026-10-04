@@ -16,17 +16,32 @@ const shapeLabels: Record<RecallShapeId,string> = {
   plus: "Plus"
 };
 
+export const LEGACY_RECALL_SHAPES: Record<string, RecallShapeId> = {
+  "●": "circle",
+  "▲": "triangle",
+  "■": "square",
+  "◆": "diamond",
+  "✦": "star",
+  "✚": "plus"
+};
+
+export function normalizeRecallShapeId(id:string): RecallShapeId | null {
+  if ((RECALL_SHAPE_IDS as readonly string[]).includes(id)) return id as RecallShapeId;
+  return LEGACY_RECALL_SHAPES[id] ?? null;
+}
+
 function ShapeGlyph({id}:{id:string}) {
-  if (!(RECALL_SHAPE_IDS as readonly string[]).includes(id)) return null;
+  const normalized = normalizeRecallShapeId(id);
+  if (!normalized) return null;
   const common = { fill: "currentColor" as const };
   return (
-    <svg className="shape-glyph-svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false" data-shape={id}>
-      {id === "circle" && <circle cx="32" cy="32" r="22" {...common} />}
-      {id === "triangle" && <polygon points="32,7 57,54 7,54" {...common} />}
-      {id === "square" && <rect x="10" y="10" width="44" height="44" rx="6" {...common} />}
-      {id === "diamond" && <polygon points="32,6 58,32 32,58 6,32" {...common} />}
-      {id === "star" && <polygon points="32,5 38.4,24.2 58.7,24.2 42.3,35.8 48.6,55 32,43.2 15.4,55 21.7,35.8 5.3,24.2 25.6,24.2" {...common} />}
-      {id === "plus" && <path d="M25 7h14v18h18v14H39v18H25V39H7V25h18V7Z" {...common} />}
+    <svg className="shape-glyph-svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false" data-shape={normalized}>
+      {normalized === "circle" && <circle cx="32" cy="32" r="22" {...common} />}
+      {normalized === "triangle" && <polygon points="32,7 57,54 7,54" {...common} />}
+      {normalized === "square" && <rect x="10" y="10" width="44" height="44" rx="6" {...common} />}
+      {normalized === "diamond" && <polygon points="32,6 58,32 32,58 6,32" {...common} />}
+      {normalized === "star" && <polygon points="32,5 38.4,24.2 58.7,24.2 42.3,35.8 48.6,55 32,43.2 15.4,55 21.7,35.8 5.3,24.2 25.6,24.2" {...common} />}
+      {normalized === "plus" && <path d="M25 7h14v18h18v14H39v18H25V39H7V25h18V7Z" {...common} />}
     </svg>
   );
 }
