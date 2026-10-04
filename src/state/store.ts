@@ -72,6 +72,8 @@ export interface SessionSnapshot {
   playDuring: "work" | "rest";
   /** Daily challenge date key, or null. */
   daily: string | null;
+  /** A one-minute practice from Insights. */
+  practice?: boolean;
   moodBefore?: number;
   savedAt: number;
 }
@@ -122,7 +124,8 @@ interface State {
   updateSetup: (patch: Partial<SessionSetup>) => void;
   updatePrefs: (patch: Partial<UserPrefs>) => void;
   markInstallOffered: () => void;
-  startSession: (options?: { guided?: boolean; daily?: boolean; moodBefore?: number }) => Promise<void>;
+  startSession: (options?: { guided?: boolean; daily?: boolean; moodBefore?: number; practice?: ModeId }) => Promise<void>;
+  deleteSession: (id: string) => void;
   /** Start, asking how you feel first when mood check-ins are on. */
   requestStart: (options?: { daily?: boolean }) => void;
   cancelStart: () => void;
@@ -235,6 +238,7 @@ function snapshotOf(a: ActiveSession): SessionSnapshot {
     intervals: a.intervals,
     playDuring: a.playDuring,
     daily: a.daily,
+    practice: a.practice,
     moodBefore: a.moodBefore,
     savedAt: Date.now(),
   };
@@ -286,6 +290,7 @@ export const useStore = create<State>((set, get) => {
       finishedAt: Date.now(),
       guided: stopped.guided || undefined,
       daily: stopped.daily ?? undefined,
+      practice: stopped.practice,
       moodBefore: stopped.moodBefore,
       intervals: stopped.intervals === "off" ? undefined : `${stopped.intervals} ${stopped.playDuring}`,
       avgHr: (() => {
@@ -376,13 +381,15 @@ export const useStore = create<State>((set, get) => {
     startSession: async (options = {}) => {
       const guided = Boolean(options.guided);
       const daily = options.daily ? dailyKey() : null;
+      const practice = options.practice;
       const { setup, progress } = get();
       const seed = daily ? dailySeed(daily) : hashSeed([Date.now(), Math.random()]);
       const durationSeconds =
-        durationOverride() ?? (guided ? GUIDED_SECONDS : daily ? DAILY_SECONDS : setup.duration === "open" ? null : DURATION_SECONDS[setup.duration]);
+        durationOverride() ??
+        (guided ? GUIDED_SECONDS : daily ? DAILY_SECONDS : practice ? 60 : setup.duration === "open" ? null : DURATION_SECONDS[setup.duration]);
       const mixModes = setup.mixModes.filter((m) => ALL_MODES.includes(m));
       const base: Plan = {
-        requestedMode: guided || daily ? ("mix" as const) : setup.mode,
+        requestedMode: practice ?? (guided || daily ? ("mix" as const) : setup.mode),
         guided,
         seed,
         daily,
@@ -414,9 +421,10 @@ export const useStore = create<State>((set, get) => {
           mixBlock: 0,
           memory: {},
           // Intervals belong to a training session, not to the first round or the daily.
-          intervals: guided || daily ? "off" : setup.intervals,
+          intervals: guided || daily || practice ? "off" : setup.intervals,
           playDuring: setup.playDuring,
           moodBefore: options.moodBefore,
+          practice: practice ? true : undefined,
           resting: false,
           savedAt: Date.now(),
           phase: "countdown",
@@ -694,6 +702,13 @@ export const useStore = create<State>((set, get) => {
     },
 
     clearError: () => set({ error: null }),
+
+    deleteSession: (id) => {
+      const history = get().history.filter((h) => h.id !== id);
+      void saveHistory(history);
+      const last = get().lastResult;
+      set({ history, lastResult: last && last.id === id ? (history[0] ?? null) : last });
+    },
 
     updateResult: (id, patch) => {
       const history = get().history.map((h) => (h.id === id ? { ...h, ...patch } : h));

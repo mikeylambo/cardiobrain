@@ -2,6 +2,7 @@ import { findInsights } from "../engine/insights";
 import type { ModeId } from "../engine/types";
 import { MODE_INFO, PLAYABLE_MODES, SCIENCE } from "../modes/registry";
 import { useStore } from "../state/store";
+import { unlockAudio } from "../audio/synth";
 import { BackIcon } from "./components";
 import { ACTIVITY_LABEL } from "./copy";
 
@@ -10,6 +11,7 @@ export function InsightsScreen() {
   const history = useStore((s) => s.history);
   const go = useStore((s) => s.go);
   const updateSetup = useStore((s) => s.updateSetup);
+  const startSession = useStore((s) => s.startSession);
   const insights = findInsights(history, { mode: (m) => MODE_INFO[m].label, activity: (a) => ACTIVITY_LABEL[a] });
   const seated = new Set(history.filter((h) => h.activity === "still").map((h) => h.requestedMode));
   const missing = PLAYABLE_MODES.filter((m) => !seated.has(m));
@@ -63,7 +65,17 @@ export function InsightsScreen() {
       <ul className="science">
         {PLAYABLE_MODES.map((m) => (
           <li key={m}>
-            <strong>{MODE_INFO[m].label}.</strong> {SCIENCE[m]?.practises} <span className="source">{SCIENCE[m]?.source}.</span>
+            <strong>{MODE_INFO[m].label}.</strong> {SCIENCE[m]?.practises} <span className="source">{SCIENCE[m]?.source}.</span>{" "}
+            <button
+              className="btn-text try-it"
+              aria-label={`Try ${MODE_INFO[m].label} for one minute`}
+              onClick={() => {
+                unlockAudio();
+                void startSession({ practice: m });
+              }}
+            >
+              Try it
+            </button>
           </li>
         ))}
       </ul>

@@ -34,15 +34,23 @@ const TRANSITION_GUARD_MS = 700;
 const loadSecondary = () => Promise.all([import("./ui/HistoryScreen"), import("./ui/InsightsScreen"), import("./ui/SettingsScreen")]);
 
 const SPLASH_MIN_MS = 1150;
+const SPLASH_QUICK_MS = 250;
 
+/** Fade the splash once boot is done: the full beat on a cold start, a blink otherwise, or straight away on a tap. */
 function dismissSplash(reduced: boolean): void {
   const el = document.getElementById("splash");
   if (!el) return;
-  const wait = reduced ? 0 : Math.max(0, SPLASH_MIN_MS - performance.now());
-  window.setTimeout(() => {
+  const quick = document.documentElement.dataset.splash === "quick";
+  const min = reduced ? 0 : quick ? SPLASH_QUICK_MS : SPLASH_MIN_MS;
+  let gone = false;
+  const go = () => {
+    if (gone) return;
+    gone = true;
     el.classList.add("out");
     window.setTimeout(() => el.remove(), 450);
-  }, wait);
+  };
+  el.addEventListener("pointerdown", go, { once: true });
+  window.setTimeout(go, Math.max(0, min - performance.now()));
 }
 
 export function App() {
@@ -71,8 +79,15 @@ export function App() {
     const tap = (e: PointerEvent) => {
       const el = (e.target as HTMLElement | null)?.closest?.("button, [role=radio], [role=switch], [role=checkbox]");
       if (!el || el.classList.contains("tile") || (el as HTMLButtonElement).disabled) return;
-      haptics.tap();
-      sfx.tap();
+      const feel = useStore.getState().prefs.feedback;
+      if (feel === "off") return;
+      if (feel === "strong") {
+        haptics.tapStrong();
+        sfx.tap(1.8);
+      } else {
+        haptics.tap();
+        sfx.tap();
+      }
     };
     window.addEventListener("pointerdown", tap);
     return () => {
@@ -116,6 +131,7 @@ export function App() {
     setSoundEnabled(prefs.sound);
     setHapticsEnabled(prefs.haptics);
     document.documentElement.classList.toggle("reduce-motion", prefs.reducedMotion);
+    document.documentElement.dataset.feel = prefs.feedback;
   }, [prefs]);
 
   // Browser chrome and the native status bar follow the surface on screen.

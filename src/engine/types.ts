@@ -74,6 +74,8 @@ export interface SessionResult {
   guided?: boolean;
   /** Daily challenge: the date key (YYYY-MM-DD) everyone shares. */
   daily?: string;
+  /** A one-minute "Try it" practice from Insights: kept in History, left out of stats. */
+  practice?: boolean;
   /** Rate of perceived exertion, 1-10 (Borg CR10), from the check-in on Results. */
   rpe?: number;
   /** Mood 1-5 before and after, when mood check-ins are on. */

@@ -28,6 +28,8 @@ export interface UserPrefs {
   maxHr: number;
   /** Native apps: write each session to Apple Health or Health Connect. */
   logToHealth: boolean;
+  /** How much every press answers back: tick, haptic and press motion. */
+  feedback: "off" | "standard" | "strong";
 }
 
 export interface SessionSetup {
@@ -72,6 +74,7 @@ export const DEFAULT_PREFS: UserPrefs = {
   weeklyGoal: 3,
   maxHr: 185,
   logToHealth: false,
+  feedback: "standard",
 };
 export const DEFAULT_SETUP: SessionSetup = { activity: "walk", mode: "mix", duration: 20, mixModes: ALL_MODES, intervals: "off", playDuring: "work" };
 export const DEFAULT_FLAGS: Flags = {

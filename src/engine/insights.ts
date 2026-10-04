@@ -3,7 +3,7 @@ import type { Activity, ModeChoice, SessionResult } from "./types";
 const DAY = 86_400_000;
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 /** Sessions that say something about you: not the guided round, not the fixed-level daily, not tiny ones. */
-export const counts = (h: SessionResult) => !h.guided && !h.daily && h.challenges >= 8;
+export const counts = (h: SessionResult) => !h.guided && !h.daily && !h.practice && h.challenges >= 8;
 
 export interface Bests {
   accuracy: boolean;
@@ -77,7 +77,46 @@ export function weekStart(now = Date.now()): number {
 }
 
 export const sessionsThisWeek = (history: SessionResult[], now = Date.now()) =>
-  history.filter((h) => !h.guided && h.startedAt >= weekStart(now) && h.activity !== "still").length;
+  history.filter((h) => !h.guided && !h.practice && h.startedAt >= weekStart(now) && h.activity !== "still").length;
+
+/**
+ * Consecutive days with at least one real session, ending today, or yesterday if
+ * today has none yet (a streak shouldn't look broken at breakfast).
+ */
+export function dayStreak(history: SessionResult[], now = Date.now()): number {
+  const day = (t: number) => {
+    const d = new Date(t);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  };
+  const days = new Set(history.filter((h) => !h.guided && !h.practice).map((h) => day(h.startedAt)));
+  let cursor = day(now);
+  if (!days.has(cursor)) cursor -= DAY;
+  let n = 0;
+  while (days.has(cursor)) {
+    n++;
+    cursor = day(cursor - DAY / 2);
+  }
+  return n;
+}
+
+/** Per-mode accuracy and speed inside one session (Mix, Daily), for modes with at least 3 answers. */
+export function modeBreakdown(r: SessionResult): Array<{ mode: SessionResult["trials"][number]["mode"]; n: number; accuracy: number; avgRt: number }> {
+  const by = new Map<string, SessionResult["trials"]>();
+  for (const t of r.trials) by.set(t.mode, [...(by.get(t.mode) ?? []), t]);
+  return [...by.entries()]
+    .filter(([, ts]) => ts.length >= 3)
+    .map(([mode, ts]) => {
+      const rts = ts.filter((t) => t.responseMs > 0).map((t) => t.responseMs);
+      return {
+        mode: mode as SessionResult["trials"][number]["mode"],
+        n: ts.length,
+        accuracy: ts.filter((t) => t.correct).length / ts.length,
+        avgRt: mean(rts),
+      };
+    })
+    .sort((a, b) => b.accuracy - a.accuracy);
+}
 
 export interface Insight {
   id: string;

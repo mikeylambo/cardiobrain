@@ -48,6 +48,8 @@ export function SessionScreen() {
   const [voiceNote, setVoiceNote] = React.useState<string | null>(null);
   const [coachMode, setCoachMode] = React.useState<string | null>(null);
   const [showPauseHint, setShowPauseHint] = React.useState(false);
+  const [progressCue, setProgressCue] = React.useState<string | null>(null);
+  const cuesFired = React.useRef<Set<string>>(new Set());
   const advanceTimer = React.useRef<number | null>(null);
   const coachCount = React.useRef<Record<string, number>>({});
 
@@ -96,6 +98,40 @@ export function SessionScreen() {
       off?.();
     };
   }, [backgrounded, foregrounded]);
+
+  // Progress cues: halfway and one minute left, shown briefly and spoken when Read aloud is on.
+  React.useEffect(() => {
+    if (!active || phase !== "running" || !active.durationSeconds) return;
+    const total = active.durationSeconds * 1000;
+    const elapsed = elapsedMs(active);
+    const fire = (key: string, text: string, spoken: string) => {
+      if (cuesFired.current.has(key)) return;
+      cuesFired.current.add(key);
+      setProgressCue(text);
+      sfx.transition();
+      if (prefs.speak) say(spoken);
+      window.setTimeout(() => setProgressCue((c) => (c === text ? null : c)), 2600);
+    };
+    const acc = active.trials.length ? Math.round((active.trials.filter((t) => t.correct).length / active.trials.length) * 100) : null;
+    if (total >= 120_000 && elapsed >= total / 2 && elapsed < total / 2 + 5000)
+      fire("half", acc === null ? "Halfway." : `Halfway. ${acc}% so far.`, acc === null ? "Halfway." : `Halfway. ${acc} percent so far.`);
+    if (total >= 180_000 && elapsed >= total - 60_000 && elapsed < total - 55_000) fire("minute", "One minute left.", "One minute left.");
+  });
+
+  // Keyboard, for laptops and keyboards paired to tablets: Space or P pauses and resumes.
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.metaKey || e.ctrlKey) return;
+      const phaseNow = useStore.getState().active?.phase;
+      if (e.key === " " || e.key === "p" || e.key === "P" || e.key === "Escape") {
+        e.preventDefault();
+        if (phaseNow === "running") pause();
+        else if (phaseNow === "paused" && e.key !== "Escape") resume();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pause, resume]);
 
   // Mix transition card: hold for 1.2s, then the next block's first challenge.
   React.useEffect(() => {
@@ -291,7 +327,7 @@ export function SessionScreen() {
       <div className="session-bar">
         {progress !== null ? (
           <div
-            className="rail"
+            className={`rail${active.durationSeconds && active.durationSeconds * 1000 - elapsed < 10_000 ? " ending" : ""}`}
             role="progressbar"
             aria-label="Session progress"
             aria-valuemin={0}
@@ -335,6 +371,12 @@ export function SessionScreen() {
         </button>
       </div>
 
+      {progressCue && (
+        <p className="progress-cue" role="status">
+          {progressCue}
+        </p>
+      )}
+
       {coach && (
         <p className="coach" role="status">
           {!guidedLine && <strong>New: {MODE_INFO[current!.mode].label}. </strong>}
@@ -372,6 +414,7 @@ export function SessionScreen() {
         <Countdown
           key={`${countdownKind}-${active.presentation}`}
           onFinished={onCountdownFinished}
+          skippable={countdownKind === "resume"}
           label={countdownKind === "resume" ? "Back in" : active.daily ? "Daily challenge" : MODE_INFO[active.guided ? "mix" : active.requestedMode].label}
         />
       )}

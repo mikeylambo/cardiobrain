@@ -102,3 +102,35 @@ describe("heart rate", () => {
     expect(zoneFor(175, 190)).toBe(5);
   });
 });
+
+import { dayStreak, modeBreakdown } from "../insights";
+describe("day streak and breakdown", () => {
+  it("counts consecutive days ending today or yesterday, ignoring practice and the first round", () => {
+    const now = new Date(2026, 9, 10, 9).getTime();
+    const at = (daysAgo: number, p: Partial<SessionResult> = {}) => s({ startedAt: now - daysAgo * 86_400_000, ...p });
+    expect(dayStreak([at(0), at(1), at(2)], now)).toBe(3);
+    expect(dayStreak([at(1), at(2)], now)).toBe(2); // none yet today: still a streak
+    expect(dayStreak([at(0), at(2)], now)).toBe(1);
+    expect(dayStreak([at(0, { practice: true }), at(1)], now)).toBe(1);
+    expect(dayStreak([], now)).toBe(0);
+  });
+  it("breaks a session down by mode, skipping modes with fewer than 3 answers", () => {
+    const t = (mode: string, correct: boolean, responseMs = 1000) => ({ mode, correct, responseMs }) as SessionResult["trials"][number];
+    const r = s({
+      trials: [
+        t("numbers", true),
+        t("numbers", true),
+        t("numbers", false),
+        t("switch", true, 500),
+        t("switch", true, 700),
+        t("switch", true, 600),
+        t("react", true),
+      ],
+    });
+    const b = modeBreakdown(r);
+    expect(b.map((x) => x.mode)).toEqual(["switch", "numbers"]);
+    expect(b[0]!.accuracy).toBe(1);
+    expect(b[0]!.avgRt).toBe(600);
+    expect(b[1]!.accuracy).toBeCloseTo(2 / 3);
+  });
+});

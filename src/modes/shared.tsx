@@ -92,6 +92,25 @@ export function Tiles({
   pressedId?: string | null;
 }) {
   const oneRow = options.length === 2;
+  // Keyboard: 1-6 pick tiles in reading order; with two answers, Left and Right do too.
+  const pickRef = React.useRef(onPick);
+  pickRef.current = onPick;
+  React.useEffect(() => {
+    if (disabled) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.target instanceof HTMLInputElement) return;
+      let i = -1;
+      if (/^[1-9]$/.test(e.key)) i = Number(e.key) - 1;
+      else if (options.length === 2 && e.key === "ArrowLeft") i = 0;
+      else if (options.length === 2 && e.key === "ArrowRight") i = 1;
+      const o = options[i];
+      if (!o) return;
+      e.preventDefault();
+      pickRef.current(o.id);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [disabled, options]);
   return (
     <div className={`tiles${oneRow ? " one-row" : ""}${cols === 3 ? " cols-3" : ""}`} role="group" aria-label="Answers">
       {options.map((o) => {

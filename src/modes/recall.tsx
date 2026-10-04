@@ -62,6 +62,17 @@ export function RecallView({ challenge, onAnswer, onPresented, feedback }: ModeV
     if (next.length === sequence.length) onAnswer(next.join(" "));
   };
 
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Backspace" && !showing && !fb) {
+        e.preventDefault();
+        setInput((s) => s.slice(0, -1));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showing, fb]);
+
   const cols = challenge.options.length > 4 ? 3 : 2;
   return (
     <>

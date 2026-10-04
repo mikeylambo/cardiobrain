@@ -47,5 +47,6 @@ export const haptics = {
   streak: () => fire("success", [12, 30, 12, 30, 20]),
   switch: () => fire("medium", 18),
   tap: () => fire("selection", 6),
+  tapStrong: () => fire("light", 14),
   test: () => fire("heavy", [20, 60, 20]),
 };

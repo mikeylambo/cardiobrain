@@ -187,3 +187,59 @@ for (const mode of ["nback", "estimate", "rotate"] as Mode[]) {
     expect(errors).toEqual([]);
   });
 }
+
+test("Try it on Insights runs a one-minute practice and returns to Insights", async ({ page }) => {
+  await prime(page, { mode: "numbers", seconds: 6 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Insights", exact: true }).click();
+  await page.getByRole("button", { name: "Try Rotate for one minute" }).click();
+  await page.locator(".countdown").waitFor({ state: "detached" });
+  await play(page, 10000);
+  await expect(page.getByRole("heading", { name: "Practice done." })).toBeVisible();
+  await expect(page.getByText("Rotate practice")).toBeVisible();
+  await page.getByRole("button", { name: "Back to Insights" }).click();
+  await expect(page.getByRole("heading", { name: "Insights" })).toBeVisible();
+});
+
+test("a session can be deleted from its detail sheet", async ({ page }) => {
+  await prime(page, { mode: "numbers" });
+  await page.goto("/");
+  await seedHistory(page, 3);
+  await page.getByRole("button", { name: "History", exact: true }).click();
+  await expect(page.locator(".session-item")).toHaveCount(3);
+  await page.locator(".session-item").first().click();
+  await page.getByRole("button", { name: "Delete this session" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.locator(".session-item")).toHaveCount(2);
+});
+
+test("keyboard: number keys answer, Space pauses and resumes, the resume countdown can be skipped", async ({ page }) => {
+  await prime(page, { mode: "numbers", seconds: 600 });
+  await page.goto("/");
+  await page.locator("#splash").waitFor({ state: "detached" });
+  await page.keyboard.press("Enter");
+  await page.locator(".countdown").waitFor({ state: "detached" });
+  await page.waitForTimeout(400);
+  await page.keyboard.press("1");
+  await page.waitForTimeout(200);
+  const trials = await page.evaluate(
+    () => (globalThis as unknown as { __cbStore: { getState: () => { active: { trials: unknown[] } } } }).__cbStore.getState().active.trials.length,
+  );
+  expect(trials).toBe(1);
+  await page.waitForTimeout(800);
+  await page.keyboard.press(" ");
+  await expect(page.getByText("Paused. Your session is saved.")).toBeVisible();
+  await page.keyboard.press(" ");
+  const t0 = Date.now();
+  await page.getByRole("button", { name: "Tap to go now" }).click();
+  await page.locator(".countdown").waitFor({ state: "detached" });
+  expect(Date.now() - t0).toBeLessThan(1500);
+});
+
+test("the full splash plays once; the next open is quick", async ({ page }) => {
+  await page.goto("/");
+  expect(await page.evaluate(() => document.documentElement.dataset.splash ?? "full")).toBe("full");
+  await page.locator("#splash").waitFor({ state: "detached" });
+  await page.reload();
+  expect(await page.evaluate(() => document.documentElement.dataset.splash)).toBe("quick");
+});

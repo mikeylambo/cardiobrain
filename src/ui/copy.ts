@@ -33,7 +33,14 @@ export function minutesLabel(seconds: number): string {
 export function previousMatch(history: SessionResult[], result: SessionResult): SessionResult | null {
   return (
     history.find(
-      (h) => h.id !== result.id && h.activity === result.activity && h.requestedMode === result.requestedMode && h.finishedAt < result.finishedAt && !h.guided,
+      (h) =>
+        h.id !== result.id &&
+        h.activity === result.activity &&
+        h.requestedMode === result.requestedMode &&
+        h.finishedAt < result.finishedAt &&
+        !h.guided &&
+        !h.practice &&
+        !h.daily,
     ) ?? null
   );
 }

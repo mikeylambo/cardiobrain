@@ -172,3 +172,15 @@ Calls made during the builds, newest first. Each one can be revisited; the reaso
 - React challenge presentation is owned by the session shell rather than firing twice from the mode view.
 - Settings now exposes a true Reset app action that clears history, active-session state, learned levels, preferences, onboarding, and setup defaults before returning to first launch.
 - Review coverage now explicitly asserts each displayed Recall shape exists as a selectable answer and that Reset app returns the product to onboarding. A malformed multi-statement Playwright review test was also corrected.
+
+## v2.3
+
+- **Splash only on a cold start.** The full beat plays when the app hasn't opened in 12 hours; otherwise it's a 250ms blink, and a tap skips it either way. Seeing the same animation five times a day stops being a welcome.
+- **Tap feedback setting (Off / Standard / Strong).** Feel is personal and context-dependent (a gym vs. a quiet room), so it's a choice, not a constant. Answer tiles keep their own feedback.
+- **Progress cues.** "Halfway" with accuracy so far (sessions of 2 minutes or more), "One minute left" (3 minutes or more), and a rail pulse in the last 10 seconds. These are spoken when Read aloud is on, so you get them without looking.
+- **By mode on Results.** For Mix and Daily, accuracy and speed per mode (3 or more trials), weakest last, so the summary says where to look.
+- **Delete one session** from its detail sheet, with an inline confirm. Mistaken sessions shouldn't need a full data wipe.
+- **Day streak on Home**, shown from 2 days. It's quiet text, not a badge: a nudge, not a guilt machine.
+- **Keyboard.** Keys 1–9 or the arrow keys answer; Space, P or Esc pause; Enter starts; Backspace undoes in Recall. This is for tablets on a treadmill with a keyboard, and it helps accessibility.
+- **The resume countdown is skippable.** You already know the game after a pause; the first countdown stays.
+- **"Try it" on Insights.** A one-minute practice per mode, kept in History but left out of stats, streak, weekly goal and comparisons.

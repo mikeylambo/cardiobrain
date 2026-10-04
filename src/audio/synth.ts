@@ -95,7 +95,7 @@ export const sfx = {
   symbol: (shape: string) => tone(RECALL_NOTES[shape] ?? 660, 0.16, 0.16),
   count: () => tone(1200, 0.025, 0.08, 0, "triangle"),
   /** The quietest sound in the app: a short tick under every press. */
-  tap: () => tone(1500, 0.018, 0.05, 0, "triangle"),
+  tap: (gain = 1) => tone(1500, 0.018, 0.05 * gain, 0, "triangle"),
   complete: () => {
     [523.25, 659.25, 783.99].forEach((f) => tone(f, 0.5, 0.12));
     tone(1046.5, 0.6, 0.1, 0.12);

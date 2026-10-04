@@ -124,6 +124,23 @@ export function SettingsScreen() {
           <Toggle label="Haptics" checked={prefs.haptics} onChange={(h) => updatePrefs({ haptics: h })} />
         </div>
       </Row>
+      <div className="setting setting-stack">
+        <div className="setting-text">
+          <strong>Tap feedback</strong>
+          <span>How much each press answers back: a tick, a buzz and a little give.</span>
+        </div>
+        <Segmented
+          label="Tap feedback"
+          cols={3}
+          value={prefs.feedback}
+          onChange={(feedback) => updatePrefs({ feedback })}
+          options={[
+            { value: "off", label: "Off" },
+            { value: "standard", label: "Standard" },
+            { value: "strong", label: "Strong" },
+          ]}
+        />
+      </div>
       <Row title="Read challenges aloud" note={canSpeak ? "Hear each challenge through your earbuds, so you can look up less." : "This browser can't speak."}>
         <div className="btn-row" style={{ gap: 12 }}>
           <button className="btn-text" disabled={!canSpeak} onClick={() => say("Forty seven plus thirty eight.")}>

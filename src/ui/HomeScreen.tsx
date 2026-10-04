@@ -4,7 +4,7 @@ import { MODE_INFO } from "../modes/registry";
 import { useStore } from "../state/store";
 import { formatClock } from "../engine/session";
 import { dailyKey, dailyNumber } from "../engine/daily";
-import { sessionsThisWeek } from "../engine/insights";
+import { dayStreak, sessionsThisWeek } from "../engine/insights";
 import { Mark } from "./components";
 import { ACTIVITY_LABEL, durationLabel, pct } from "./copy";
 import { SetupSheet } from "./SetupScreen";
@@ -62,6 +62,18 @@ export function HomeScreen() {
   const daily = history.find((h) => h.daily === today);
   const last = history.find((h) => !h.guided && !h.daily) ?? history[0];
   const week = sessionsThisWeek(history);
+  const streakDays = dayStreak(history);
+
+  // Enter starts, for keyboards. Ignored while a sheet is open.
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Enter" || sheet || document.querySelector(".sheet") || (e.target as HTMLElement)?.closest?.("button, input")) return;
+      unlockAudio();
+      requestStart();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sheet, requestStart]);
   // After a third real session, point once at the features made for training without looking.
   const showTip = !flags.featureTipShown && !prefs.speak && history.filter((h) => !h.guided && !h.daily).length >= 3 && !recoverable && !error;
   const start = (opts?: { daily?: boolean }) => {
@@ -85,6 +97,7 @@ export function HomeScreen() {
           {setup.intervals !== "off" ? `, intervals ${setup.intervals}` : ""}
         </p>
         <GoalRing done={week} goal={prefs.weeklyGoal} />
+        {streakDays >= 2 && <p className="streak-line">{streakDays} days in a row</p>}
       </div>
 
       <div className="home-actions">

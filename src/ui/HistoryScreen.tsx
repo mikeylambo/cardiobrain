@@ -113,6 +113,8 @@ function ConsistencyStrip({ history }: { history: SessionResult[] }) {
 
 function Detail({ r, onClose }: { r: SessionResult; onClose: () => void }) {
   const cost = switchCostText(r.switchCost);
+  const deleteSession = useStore((s) => s.deleteSession);
+  const [confirming, setConfirming] = React.useState(false);
   const rows: Array<[string, string]> = [
     ["Accuracy", `${pct(r.accuracy)}%`],
     ["Duration", minutesLabel(r.durationSeconds)],
@@ -142,6 +144,31 @@ function Detail({ r, onClose }: { r: SessionResult; onClose: () => void }) {
       <p className="t-17" style={{ marginTop: 16 }}>
         {sessionNote(r)}
       </p>
+      <div className="detail-actions">
+        {confirming ? (
+          <>
+            <p className="t-17">Delete this session? It can't be undone.</p>
+            <div className="btn-row">
+              <button
+                className="btn-text"
+                onClick={() => {
+                  deleteSession(r.id);
+                  onClose();
+                }}
+              >
+                Delete
+              </button>
+              <button className="btn-text" onClick={() => setConfirming(false)}>
+                Keep it
+              </button>
+            </div>
+          </>
+        ) : (
+          <button className="btn-text" onClick={() => setConfirming(true)}>
+            Delete this session
+          </button>
+        )}
+      </div>
     </Sheet>
   );
 }

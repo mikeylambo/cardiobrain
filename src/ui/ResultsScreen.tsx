@@ -4,7 +4,7 @@ import { say } from "../audio/speech";
 import { useStore } from "../state/store";
 import { isNative, shareNative } from "../platform/native";
 import { dailyNumber } from "../engine/daily";
-import { motionCost, motionCostText, personalBests } from "../engine/insights";
+import { modeBreakdown, motionCost, motionCostText, personalBests } from "../engine/insights";
 import { MODE_INFO } from "../modes/registry";
 import { DeltaGlyph, Sheet } from "./components";
 import { ACTIVITY_LABEL, accuracyDeltaText, deltas, headline, minutesLabel, pct, previousMatch, rtDeltaText, secs, switchCostText } from "./copy";
@@ -41,11 +41,12 @@ export function ResultsScreen() {
     () => (result && result.activity !== "still" && !result.daily && !result.guided ? motionCost(history, result.requestedMode, [result]) : null),
     [history, result],
   );
-  const title = result ? (result.daily ? `Daily #${dailyNumber(result.daily)} done.` : headline(result, prev)) : "";
+  const title = result ? (result.daily ? `Daily #${dailyNumber(result.daily)} done.` : result.practice ? "Practice done." : headline(result, prev)) : "";
+  const breakdown = React.useMemo(() => (result && (result.requestedMode === "mix" || result.daily) ? modeBreakdown(result) : []), [result]);
   const kicker = result
     ? result.daily
       ? `Daily challenge, ${ACTIVITY_LABEL[result.activity].toLowerCase()}`
-      : `${ACTIVITY_LABEL[result.activity]}, ${result.guided ? "first round" : MODE_INFO[result.requestedMode].label}`
+      : `${ACTIVITY_LABEL[result.activity]}, ${result.guided ? "first round" : result.practice ? `${MODE_INFO[result.requestedMode].label} practice` : MODE_INFO[result.requestedMode].label}`
     : "";
 
   // The "play it seated" reminder shows once per mode, then stays out of the way.
@@ -142,7 +143,7 @@ export function ResultsScreen() {
   const accDir = d.accuracyPoints === null ? null : d.accuracyPoints > 0 ? "up" : d.accuracyPoints < 0 ? "down" : "flat";
   const rtDir = d.rtSeconds === null ? null : d.rtSeconds < 0 ? "up" : d.rtSeconds > 0 ? "down" : "flat";
   const bestList = bests ? [bests.accuracy && "accuracy", bests.speed && "speed", bests.streak && "streak"].filter(Boolean) : [];
-  const askEffort = !result.guided && result.activity !== "still";
+  const askEffort = !result.guided && !result.practice && result.activity !== "still";
   const askMood = prefs.moodCheckIn && !result.guided;
 
   return (
@@ -191,7 +192,24 @@ export function ResultsScreen() {
             </span>
           </div>
         )}
-        {!result.daily && !result.guided && (result.activity === "still" || cost || nudge) && (
+        {breakdown.length >= 2 && (
+          <div className="stat breakdown">
+            <span className="stat-label">By mode</span>
+            <ul className="breakdown-list" style={{ gridColumn: "1 / -1" }}>
+              {breakdown.map((b) => (
+                <li key={b.mode}>
+                  <span>{MODE_INFO[b.mode].label}</span>
+                  <span className="breakdown-bar" aria-hidden="true">
+                    <span style={{ width: `${Math.round(b.accuracy * 100)}%` }} />
+                  </span>
+                  <span className="num">{Math.round(b.accuracy * 100)}%</span>
+                  <span className="num">{secs(b.avgRt)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {!result.daily && !result.guided && !result.practice && (result.activity === "still" || cost || nudge) && (
           <div className="stat">
             <span className="stat-label">Motion cost</span>
             <span className="stat-delta" style={{ gridColumn: "1 / -1" }}>
@@ -250,10 +268,11 @@ export function ResultsScreen() {
           className="btn-primary"
           onClick={() => {
             if (result.guided || result.daily) go("home");
+            else if (result.practice) go("insights");
             else requestStart();
           }}
         >
-          {result.guided || result.daily ? "Continue" : "Go again"}
+          {result.guided || result.daily ? "Continue" : result.practice ? "Back to Insights" : "Go again"}
         </button>
         <div className="btn-row spread">
           <button className="btn-text" onClick={() => setSheet(true)}>
