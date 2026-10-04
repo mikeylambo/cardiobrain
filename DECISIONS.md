@@ -2,6 +2,19 @@
 
 Calls made during the builds, newest first. Each one can be revisited; the reason is here so it does not have to be rediscovered.
 
+## v2.2 (October 2026): feel and flow
+
+- **Copy:** a plain-language pass removed filler ("That's the whole game.", "It happens.", "Can you beat it?"). Lines now say what happened or what to do.
+- **Splash:** the web splash starts from the same mark as the native and iOS launch images, so the handoff looks seamless. The ring sweeps in, the dot pops, the wordmark rises, and it all fades after at least 1.15s. Its styles and @font-face are inlined in `index.html` so it paints before the CSS bundle arrives. The wordmark animates by transform only: text that starts invisible doesn't count as Largest Contentful Paint, and Lighthouse had reported none.
+- **Press feedback:** every control scales on press and springs back, with a light haptic and a quiet tick. Correct tiles pop with a ring burst, wrong ones nudge and dim, and the streak counter bumps. Answer tiles keep their own feedback, so there's no double tick.
+- **Screen transitions:** the View Transitions API runs only between Home, History, Insights and Settings. Deeper screens slide in from the right, and going back slides from the left. Sessions keep their countdown and wipe, and Results rises in by itself. In testing, a transition into a live session sometimes never finished and stalled the countdown, so sessions are excluded, and every transition is cut short after 700ms.
+- **Countdown:** centered.
+- **Placement** replaces the slow 20-trial calibration. A mode you've never played moves up a level for each quick correct answer, holds on a slow correct one, and drops on a wrong one, for 12 challenges (capped at level 12). The guided round stays at level 4 or below.
+- **iPhone speech:** iOS only speaks after speech starts inside a tap, so the Start tap speaks a silent utterance.
+- **Voice commands:** "pause" or "stop" pauses, and while paused, "resume", "continue" or "go" resumes. Results read themselves aloud when spoken prompts are on.
+- **Fewer reminders:** the "play seated" reminder shows once per mode. The Read aloud and Eyes-free tip shows once, after the third real session.
+- **Layout:** Daily is a single line under Start. The setup sheet shows only the selected mode, with a Change mode link. N-back is now "Look back", with N-back mentioned in its description.
+
 ## v2.1 (October 2026)
 
 ### Scope
