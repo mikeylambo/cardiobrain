@@ -34,6 +34,13 @@ export function SetupScreen({ onBack }: { onBack: () => void }) {
         {CORE_MODE_IDS.map(id => { const mode = MODE_REGISTRY[id]; return <button key={id} className={`mode-card ${setup.mode === id ? "selected" : ""}`} onClick={() => setSetup({ mode: id })}><strong>{mode.label}</strong><p>{mode.description}</p></button>; })}
       </div></section>
 
+      <section><div className="eyebrow" style={{ marginBottom: 10 }}>WORDS</div><div className="word-mode-wrap">
+        <button className={`mode-card word-mode-card ${setup.mode === "rhyme" ? "selected" : ""}`} onClick={() => setSetup({ mode: "rhyme" })}>
+          <div className="mode-card-kicker">LANGUAGE · TIMING</div>
+          <strong>{wordsMode.label}</strong><p>{wordsMode.description}</p>
+        </button>
+      </div></section>
+
       <section><div className="eyebrow" style={{ marginBottom: 10 }}>DURATION</div><div className="duration-row">{durations.map(value => <button key={String(value)} className={`chip ${setup.duration === value ? "selected" : ""}`} onClick={() => setSetup({ duration: value })}>{getDurationLabel(value)}</button>)}</div></section>
 
       <motion.button whileTap={{ scale: 0.985 }} className="action-primary" onClick={start}>Continue to countdown</motion.button>
