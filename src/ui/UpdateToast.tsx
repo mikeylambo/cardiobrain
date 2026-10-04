@@ -5,7 +5,7 @@ import { useCardioStore } from "../state/store";
 export function UpdateToast(){
   const screen=useCardioStore(s=>s.screen);
   const [ready,setReady]=React.useState(false);
-  const update=React.useRef(null);
+  const update=React.useRef<(()=>Promise<void>|void)|null>(null);
 
   React.useEffect(()=>{
     update.current=registerSW({immediate:true,onNeedRefresh:()=>setReady(true)});
