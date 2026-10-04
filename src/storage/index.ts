@@ -173,12 +173,33 @@ export const loadSetup = () => readLocal("cb-setup", DEFAULT_SETUP);
 export const saveSetup = (setup: SessionSetup) => writeLocal("cb-setup", setup);
 export const loadFlags = () => readLocal("cb-flags", DEFAULT_FLAGS);
 export const saveFlags = (flags: Flags) => writeLocal("cb-flags", flags);
+/** A friend's daily score to beat, from a challenge link, kept until it's played or dismissed. */
+export interface Rival {
+  daily: string;
+  score: number;
+}
+export function loadRival(): Rival | null {
+  try {
+    const raw = localStorage.getItem("cb-challenge");
+    return raw ? (JSON.parse(raw) as Rival) : null;
+  } catch {
+    return null;
+  }
+}
+export function saveRival(rival: Rival | null): void {
+  try {
+    if (rival) localStorage.setItem("cb-challenge", JSON.stringify(rival));
+    else localStorage.removeItem("cb-challenge");
+  } catch {
+    // Kept in memory for this visit.
+  }
+}
 export const loadProgress = () => readLocal<PersistedProgress>("cb-progress", {});
 export const saveProgress = (progress: PersistedProgress) => writeLocal("cb-progress", progress);
 
 export function clearLocal(): void {
   try {
-    for (const key of ["cb-prefs", "cb-setup", "cb-flags", "cb-progress", "cb-errors"]) localStorage.removeItem(key);
+    for (const key of ["cb-prefs", "cb-setup", "cb-flags", "cb-progress", "cb-errors", "cb-challenge"]) localStorage.removeItem(key);
   } catch {
     // Nothing stored.
   }

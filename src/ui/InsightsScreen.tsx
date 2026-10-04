@@ -1,4 +1,5 @@
-import { findInsights } from "../engine/insights";
+import { findInsights, motionRows } from "../engine/insights";
+import { MotionChart } from "./MotionChart";
 import type { ModeId } from "../engine/types";
 import { MODE_INFO, PLAYABLE_MODES, SCIENCE } from "../modes/registry";
 import { useStore } from "../state/store";
@@ -15,6 +16,7 @@ export function InsightsScreen() {
   const insights = findInsights(history, { mode: (m) => MODE_INFO[m].label, activity: (a) => ACTIVITY_LABEL[a] });
   const seated = new Set(history.filter((h) => h.activity === "still").map((h) => h.requestedMode));
   const missing = PLAYABLE_MODES.filter((m) => !seated.has(m));
+  const rows = motionRows(history);
 
   const takeBaseline = (mode: ModeId) => {
     updateSetup({ activity: "still", mode, duration: 10 });
@@ -49,8 +51,11 @@ export function InsightsScreen() {
       {insights.length > 0 && <p className="sheet-note">These describe patterns in your sessions, not causes. More sessions make them steadier.</p>}
 
       <h2 className="t-24 section-title">Motion cost</h2>
+      {rows.length > 0 && <MotionChart rows={rows} />}
       <p className="t-17">
-        Play a mode seated once and CardioBrain can show how much moving costs your thinking on it.{" "}
+        {rows.length
+          ? "The gap between the dots is what moving costs your thinking. Points show the change in accuracy."
+          : "Play a mode seated once and CardioBrain can show how much moving costs your thinking on it."}{" "}
         {missing.length
           ? `No seated baseline yet for ${missing.length === PLAYABLE_MODES.length ? "any mode" : missing.map((m) => MODE_INFO[m].label).join(", ")}.`
           : "Every mode has a baseline."}

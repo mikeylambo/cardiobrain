@@ -1,17 +1,25 @@
+import pkg from "../package.json" with { type: "json" };
 import type { Page } from "@playwright/test";
 
 export type Activity = "walk" | "bike" | "stairs" | "run";
 export type Mode = "mix" | "numbers" | "switch" | "react" | "recall" | "rhyme" | "nback" | "estimate" | "rotate";
 
 /** Start the app in a known state: onboarded (or not), a given preset, an optional short session length. */
+export const RELEASE = pkg.version.split(".").slice(0, 2).join(".");
+
 export async function prime(page: Page, opts: { activity?: Activity; mode?: Mode; onboarded?: boolean; seconds?: number; installOffered?: boolean } = {}) {
-  await page.addInitScript((o) => {
-    if (sessionStorage.getItem("cb-primed")) return;
-    sessionStorage.setItem("cb-primed", "1");
-    localStorage.setItem("cb-flags", JSON.stringify({ onboarded: o.onboarded ?? true, installOffered: o.installOffered ?? true }));
-    localStorage.setItem("cb-setup", JSON.stringify({ activity: o.activity ?? "walk", mode: o.mode ?? "numbers", duration: 10 }));
-    if (o.seconds) sessionStorage.setItem("cb-test-duration-seconds", String(o.seconds));
-  }, opts);
+  await page.addInitScript(
+    (o) => {
+      if (sessionStorage.getItem("cb-primed")) return;
+      sessionStorage.setItem("cb-primed", "1");
+      // Tests start caught up on release notes; the "Updated to" note has its own test.
+      localStorage.setItem("cb-seen-release", o.release);
+      localStorage.setItem("cb-flags", JSON.stringify({ onboarded: o.onboarded ?? true, installOffered: o.installOffered ?? true }));
+      localStorage.setItem("cb-setup", JSON.stringify({ activity: o.activity ?? "walk", mode: o.mode ?? "numbers", duration: 10 }));
+      if (o.seconds) sessionStorage.setItem("cb-test-duration-seconds", String(o.seconds));
+    },
+    { ...opts, release: RELEASE },
+  );
 }
 
 /** Collect console errors and unhandled rejections; assert empty at the end of a test. */

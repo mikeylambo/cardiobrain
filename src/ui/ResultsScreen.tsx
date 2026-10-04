@@ -2,12 +2,13 @@ import React from "react";
 import { sfx } from "../audio/synth";
 import { say } from "../audio/speech";
 import { useStore } from "../state/store";
-import { isNative, shareNative } from "../platform/native";
+import { isNative, shareNative, shareText } from "../platform/native";
+import { challengeLink } from "../platform/links";
 import { dailyNumber } from "../engine/daily";
 import { modeBreakdown, motionCost, motionCostText, personalBests } from "../engine/insights";
 import { MODE_INFO } from "../modes/registry";
 import { DeltaGlyph, Sheet } from "./components";
-import { ACTIVITY_LABEL, accuracyDeltaText, deltas, headline, minutesLabel, pct, previousMatch, rtDeltaText, secs, switchCostText } from "./copy";
+import { ACTIVITY_LABEL, accuracyDeltaText, rivalText, deltas, headline, minutesLabel, pct, previousMatch, rtDeltaText, secs, switchCostText } from "./copy";
 import type { CardFormat } from "./shareCard";
 import { SetupSheet } from "./SetupScreen";
 
@@ -96,6 +97,21 @@ export function ResultsScreen() {
     setShown(target);
   };
 
+  const [linkNote, setLinkNote] = React.useState<string | null>(null);
+  // A link that opens this exact daily for a friend, with your score to beat.
+  const sendChallenge = async () => {
+    if (!result?.daily) return;
+    const link = challengeLink(result.daily, result.accuracy);
+    const text = `I got ${pct(result.accuracy)}% on CardioBrain Daily #${dailyNumber(result.daily)}. Can you beat it?`;
+    if (await shareText("CardioBrain challenge", `${text} ${link}`)) return;
+    try {
+      await navigator.clipboard.writeText(`${text} ${link}`);
+      setLinkNote("Link copied. Paste it to a friend.");
+    } catch {
+      setLinkNote(link);
+    }
+  };
+
   const share = async (format: CardFormat) => {
     if (!result) return;
     setShareSheet(false);
@@ -104,7 +120,7 @@ export function ResultsScreen() {
       const { renderShareCard } = await import("./shareCard");
       const blob = await renderShareCard(result, title, d, format, kicker);
       const text = result.daily
-        ? `CardioBrain Daily #${dailyNumber(result.daily)}: ${pct(result.accuracy)}%, ${secs(result.avgRt)} average.`
+        ? `CardioBrain Daily #${dailyNumber(result.daily)}: ${pct(result.accuracy)}%. Can you beat it? ${challengeLink(result.daily, result.accuracy)}`
         : `${pct(result.accuracy)}% on CardioBrain. ${title}`;
       if (isNative && (await shareNative(blob, text))) {
         setShareState("idle");
@@ -159,6 +175,7 @@ export function ResultsScreen() {
         {d.accuracyPoints === null ? "Accuracy" : `Accuracy. ${accuracyDeltaText(d.accuracyPoints)}.`}
       </p>
       {bestList.length > 0 && <p className="best-line">New personal best: {bestList.join(", ")}.</p>}
+      {result.rival !== undefined && <p className="best-line rival-line">{rivalText(result.accuracy, result.rival)}</p>}
       <p className="sr-only" role="status" aria-live="polite">
         {title} {pct(result.accuracy)} percent accuracy. {d.accuracyPoints === null ? "" : `${accuracyDeltaText(d.accuracyPoints)}.`}
         {bestList.length ? ` New personal best: ${bestList.join(", ")}.` : ""}
@@ -304,6 +321,18 @@ export function ResultsScreen() {
               Story
             </button>
             <p className="sheet-note">Poster fits feeds and messages. Story is tall, for Instagram and WhatsApp stories.</p>
+            {result.daily && (
+              <>
+                <button className="btn-text" style={{ alignSelf: "flex-start" }} onClick={() => void sendChallenge()}>
+                  Send a challenge link
+                </button>
+                {linkNote && (
+                  <p className="t-14" role="status">
+                    {linkNote}
+                  </p>
+                )}
+              </>
+            )}
           </div>
         </Sheet>
       )}

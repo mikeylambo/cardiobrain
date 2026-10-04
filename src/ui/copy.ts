@@ -106,6 +106,16 @@ export function switchCostText(ms: number | null): string | null {
   return `${(ms / 1000).toFixed(2)}s slower when the rule changed.`;
 }
 
+/** How a daily went against the friend who challenged you. */
+export function rivalText(accuracy: number, rival: number): string {
+  const diff = pct(accuracy) - rival;
+  if (diff === 0) return `Tied with your friend's ${rival}%.`;
+  const n = Math.abs(diff);
+  return diff > 0
+    ? `You beat your friend's ${rival}% by ${n} ${n === 1 ? "point" : "points"}.`
+    : `${n} ${n === 1 ? "point" : "points"} short of your friend's ${rival}%.`;
+}
+
 /** A plain-language note for session detail. */
 export function sessionNote(r: SessionResult): string {
   const acc = pct(r.accuracy);

@@ -25,7 +25,10 @@ import {
   loadHistory,
   loadPrefs,
   loadProgress,
+  loadRival,
   loadSetup,
+  saveRival,
+  type Rival,
   saveActiveSession,
   saveFlags,
   saveHistory,
@@ -114,7 +117,10 @@ interface State {
   lastResult: SessionResult | null;
   error: string | null;
   /** A start waiting on the mood check-in. */
-  pendingStart: { daily?: boolean } | null;
+  pendingStart: { daily?: boolean | string } | null;
+  /** A friend's daily score to beat, from a challenge link. */
+  rival: Rival | null;
+  setRival: (rival: Rival | null) => void;
   /** Live heart rate from a connected strap. */
   heart: { bpm: number; zone: Zone; at: number; device: string } | null;
   setHeart: (bpm: number | null, device?: string) => void;
@@ -125,10 +131,15 @@ interface State {
   updateSetup: (patch: Partial<SessionSetup>) => void;
   updatePrefs: (patch: Partial<UserPrefs>) => void;
   markInstallOffered: () => void;
-  startSession: (options?: { guided?: boolean; daily?: boolean; moodBefore?: number; practice?: ModeId }) => Promise<void>;
+  /** `daily: true` is today's; a date key plays that day's (from a challenge link). */
+  startSession: (options?: { guided?: boolean; daily?: boolean | string; moodBefore?: number; practice?: ModeId }) => Promise<void>;
   deleteSession: (id: string) => void;
+  /** Put a deleted session back (Undo). */
+  restoreSession: (r: SessionResult) => void;
+  /** Send a mode back to placement: the next session finds its level again. */
+  resetLevel: (mode: ModeId) => void;
   /** Start, asking how you feel first when mood check-ins are on. */
-  requestStart: (options?: { daily?: boolean }) => void;
+  requestStart: (options?: { daily?: boolean | string }) => void;
   cancelStart: () => void;
   countdownDone: () => void;
   markPresented: () => void;
@@ -308,6 +319,13 @@ export const useStore = create<State>((set, get) => {
       })(),
       trials: stopped.trials,
     };
+    // Played the daily a friend challenged you to: keep their score with yours, and the challenge is done.
+    const rival = get().rival;
+    if (stopped.daily && rival?.daily === stopped.daily) {
+      result.rival = rival.score;
+      saveRival(null);
+      set({ rival: null });
+    }
     if (get().prefs.logToHealth) void logSessionToHealth(result);
     trackEvent("Session finished", {
       mode: result.requestedMode,
@@ -363,11 +381,18 @@ export const useStore = create<State>((set, get) => {
         history,
         recoverable: fresh,
         lastResult: history[0] ?? null,
+        rival: loadRival(),
         screen: flags.onboarded ? "home" : "welcome",
       });
     },
 
     go: (screen) => set({ screen }),
+
+    rival: null,
+    setRival: (rival) => {
+      saveRival(rival);
+      set({ rival });
+    },
 
     chooseActivity: (activity) => {
       const setup = { ...get().setup, activity };
@@ -395,7 +420,7 @@ export const useStore = create<State>((set, get) => {
 
     startSession: async (options = {}) => {
       const guided = Boolean(options.guided);
-      const daily = options.daily ? dailyKey() : null;
+      const daily = typeof options.daily === "string" ? options.daily : options.daily ? dailyKey() : null;
       const practice = options.practice;
       const { setup, progress } = get();
       const seed = daily ? dailySeed(daily) : hashSeed([Date.now(), Math.random()]);
@@ -730,6 +755,20 @@ export const useStore = create<State>((set, get) => {
       void saveHistory(history);
       const last = get().lastResult;
       set({ history, lastResult: last && last.id === id ? (history[0] ?? null) : last });
+    },
+
+    restoreSession: (r) => {
+      if (get().history.some((h) => h.id === r.id)) return;
+      const history = [...get().history, r].sort((a, b) => b.startedAt - a.startedAt);
+      void saveHistory(history);
+      set({ history, lastResult: history[0] ?? null });
+    },
+
+    resetLevel: (mode) => {
+      const progress = { ...get().progress };
+      delete progress[mode];
+      saveProgress(progress);
+      set({ progress });
     },
 
     updateResult: (id, patch) => {

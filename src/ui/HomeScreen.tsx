@@ -1,3 +1,5 @@
+import { APP_VERSION, lastSeenRelease, markReleaseSeen, releaseOf } from "../changelog";
+import { WhatsNewSheet } from "./AboutSheets";
 import React from "react";
 import { unlockAudio } from "../audio/synth";
 import { MODE_INFO } from "../modes/registry";
@@ -84,7 +86,20 @@ export function HomeScreen() {
   }, [sheet, requestStart]);
   // After a third real session, point once at the features made for training without looking.
   const showTip = !flags.featureTipShown && !prefs.speak && history.filter((h) => !h.guided && !h.daily).length >= 3 && !recoverable && !error;
-  const start = (opts?: { daily?: boolean }) => {
+  // After an update, one quiet line pointing at what changed. A brand-new install starts caught up.
+  const [newRelease, setNewRelease] = React.useState(() => {
+    const seen = lastSeenRelease();
+    if (seen === releaseOf(APP_VERSION)) return false;
+    if (!seen && !history.some((h) => !h.guided)) {
+      markReleaseSeen();
+      return false;
+    }
+    return true;
+  });
+  const [notes, setNotes] = React.useState(false);
+  const rival = useStore((s) => s.rival);
+  const setRival = useStore((s) => s.setRival);
+  const start = (opts?: { daily?: boolean | string }) => {
     unlockAudio();
     requestStart(opts);
   };
@@ -117,6 +132,31 @@ export function HomeScreen() {
             </button>
           </div>
         )}
+        {newRelease && !showTip && (
+          <div className="notice" role="status">
+            Updated to {releaseOf(APP_VERSION)}.{" "}
+            <button
+              className="btn-text"
+              onClick={() => {
+                markReleaseSeen();
+                setNewRelease(false);
+                setNotes(true);
+              }}
+            >
+              What's new
+            </button>{" "}
+            <button
+              className="btn-text"
+              onClick={() => {
+                markReleaseSeen();
+                setNewRelease(false);
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+        {notes && <WhatsNewSheet onClose={() => setNotes(false)} />}
         {showTip && (
           <div className="notice" role="status">
             Training outdoors? Read aloud and Eyes-free let you play without looking down.{" "}
@@ -159,7 +199,16 @@ export function HomeScreen() {
             Start
           </button>
         )}
-        {daily ? (
+        {rival ? (
+          <div className="rival">
+            <button className="daily-line btn-text" onClick={() => start({ daily: rival.daily })}>
+              Beat a friend's {rival.score}% on Daily #{dailyNumber(rival.daily)}
+            </button>
+            <button className="btn-text rival-skip" onClick={() => setRival(null)} aria-label="Skip the friend's challenge">
+              Skip
+            </button>
+          </div>
+        ) : daily ? (
           <p className="daily-line">
             Daily #{dailyNumber(today)} done: {pct(daily.accuracy)}%. A new one tomorrow.
           </p>

@@ -4,6 +4,10 @@
 import type { Activity, ModeChoice } from "../engine/types";
 import { useStore } from "../state/store";
 import { isNative } from "./native";
+import { dailyKey, dailyNumber } from "../engine/daily";
+
+/** Where shared links point, from the web and from the native apps alike. */
+export const PUBLIC_URL = "https://cardiobrain.vercel.app";
 
 const ACTIVITIES: Activity[] = ["walk", "bike", "stairs", "run", "still"];
 const MODES: ModeChoice[] = ["mix", "numbers", "switch", "react", "recall", "rhyme", "nback", "estimate", "rotate"];
@@ -11,7 +15,15 @@ const MODES: ModeChoice[] = ["mix", "numbers", "switch", "react", "recall", "rhy
 export interface StartLink {
   activity?: Activity;
   mode?: ModeChoice;
-  daily?: boolean;
+  /** True for today's daily, or a past day's date key from a challenge link. */
+  daily?: boolean | string;
+  /** A friend's accuracy to beat, 0–100. */
+  beat?: number;
+}
+
+/** "Can you beat it?" link for a daily result. */
+export function challengeLink(daily: string, accuracy: number): string {
+  return `${PUBLIC_URL}/?daily=${daily}&beat=${Math.round(accuracy * 100)}`;
 }
 
 /** Read a start request from a URL. Unknown values are ignored rather than guessed. */
@@ -30,12 +42,19 @@ export function parseStartLink(href: string): StartLink | null {
   const mode = q.get("mode");
   if (mode && MODES.includes(mode as ModeChoice)) out.mode = mode as ModeChoice;
   if (q.has("daily") || start === "daily") out.daily = true;
+  // A dated daily (a challenge link): only real days, never the future.
+  const day = q.get("daily");
+  if (day && /^\d{4}-\d{2}-\d{2}$/.test(day) && day <= dailyKey() && dailyNumber(day) >= 1) out.daily = day;
+  const beat = Number(q.get("beat"));
+  if (typeof out.daily === "string" && q.has("beat") && Number.isInteger(beat) && beat >= 0 && beat <= 100) out.beat = beat;
   return out;
 }
 
 function apply(link: StartLink | null): void {
   if (!link) return;
   const s = useStore.getState();
+  // A challenge is remembered even when it can't start yet (first run, mid-session): Home offers it.
+  if (typeof link.daily === "string" && link.beat !== undefined) s.setRival({ daily: link.daily, score: link.beat });
   if (!s.flags.onboarded || s.active) return;
   if (link.activity) s.chooseActivity(link.activity);
   if (link.mode) s.updateSetup({ mode: link.mode });

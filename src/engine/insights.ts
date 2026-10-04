@@ -59,6 +59,38 @@ export function motionCost(history: SessionResult[], mode: ModeChoice, moving: S
   };
 }
 
+export interface MotionRow {
+  mode: ModeChoice;
+  seatedAcc: number;
+  movingAcc: number;
+  seatedRt: number;
+  movingRt: number;
+  seatedN: number;
+  movingN: number;
+}
+
+/** Seated vs. moving averages per mode, for every mode with both (seated: your three latest). */
+export function motionRows(history: SessionResult[]): MotionRow[] {
+  const modes = [...new Set(history.filter((h) => h.activity === "still" && counts(h)).map((h) => h.requestedMode))];
+  return modes
+    .map((mode) => {
+      const base = history.filter((h) => h.activity === "still" && h.requestedMode === mode && counts(h)).slice(0, 3);
+      const mov = history.filter((h) => h.activity !== "still" && h.requestedMode === mode && counts(h));
+      if (!base.length || !mov.length) return null;
+      return {
+        mode,
+        seatedAcc: mean(base.map((h) => h.accuracy)),
+        movingAcc: mean(mov.map((h) => h.accuracy)),
+        seatedRt: mean(base.map((h) => h.avgRt)),
+        movingRt: mean(mov.map((h) => h.avgRt)),
+        seatedN: base.length,
+        movingN: mov.length,
+      };
+    })
+    .filter((r): r is MotionRow => r !== null)
+    .sort((a, b) => a.movingAcc - a.seatedAcc - (b.movingAcc - b.seatedAcc));
+}
+
 export function motionCostText(c: MotionCost): string {
   const rt = Math.abs(c.rtPercent) < 3 ? "about as fast as" : `${Math.abs(c.rtPercent)}% ${c.rtPercent > 0 ? "slower than" : "faster than"}`;
   const acc =

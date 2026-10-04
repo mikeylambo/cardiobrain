@@ -111,10 +111,9 @@ function ConsistencyStrip({ history }: { history: SessionResult[] }) {
   );
 }
 
-function Detail({ r, onClose }: { r: SessionResult; onClose: () => void }) {
+function Detail({ r, onClose, onDeleted }: { r: SessionResult; onClose: () => void; onDeleted: (r: SessionResult) => void }) {
   const cost = switchCostText(r.switchCost);
   const deleteSession = useStore((s) => s.deleteSession);
-  const [confirming, setConfirming] = React.useState(false);
   const rows: Array<[string, string]> = [
     ["Accuracy", `${pct(r.accuracy)}%`],
     ["Duration", minutesLabel(r.durationSeconds)],
@@ -145,29 +144,16 @@ function Detail({ r, onClose }: { r: SessionResult; onClose: () => void }) {
         {sessionNote(r)}
       </p>
       <div className="detail-actions">
-        {confirming ? (
-          <>
-            <p className="t-17">Delete this session? It can't be undone.</p>
-            <div className="btn-row">
-              <button
-                className="btn-text"
-                onClick={() => {
-                  deleteSession(r.id);
-                  onClose();
-                }}
-              >
-                Delete
-              </button>
-              <button className="btn-text" onClick={() => setConfirming(false)}>
-                Keep it
-              </button>
-            </div>
-          </>
-        ) : (
-          <button className="btn-text" onClick={() => setConfirming(true)}>
-            Delete this session
-          </button>
-        )}
+        <button
+          className="btn-text"
+          onClick={() => {
+            deleteSession(r.id);
+            onDeleted(r);
+            onClose();
+          }}
+        >
+          Delete this session
+        </button>
       </div>
     </Sheet>
   );
@@ -176,6 +162,10 @@ function Detail({ r, onClose }: { r: SessionResult; onClose: () => void }) {
 /** Where the difficulty controller has each mode, 1 to 20. */
 function Levels() {
   const progress = useStore((s) => s.progress);
+  const resetLevel = useStore((s) => s.resetLevel);
+  const [resetting, setResetting] = React.useState(false);
+  const [done, setDone] = React.useState<string | null>(null);
+  const played = PLAYABLE_MODES.filter((m) => progress[m]?.level);
   return (
     <div style={{ marginTop: 28 }}>
       <div className="trend-head">
@@ -202,6 +192,48 @@ function Levels() {
           );
         })}
       </ul>
+      {played.length > 0 && (
+        <button className="btn-text" style={{ marginTop: 4 }} onClick={() => setResetting(true)}>
+          Reset a level
+        </button>
+      )}
+      {resetting && (
+        <Sheet
+          title="Reset a level"
+          onClose={() => {
+            setResetting(false);
+            setDone(null);
+          }}
+        >
+          <p className="t-17" style={{ marginBottom: 12 }}>
+            If a mode feels far too easy or too hard, reset it. Its next session finds your level again over the first dozen challenges. Your history stays.
+          </p>
+          <ul className="reset-list">
+            {played.map((m) => (
+              <li key={m}>
+                <span className="t-17">
+                  {MODE_INFO[m].label} <span className="t-14 num">level {progress[m]!.level}</span>
+                </span>
+                <button
+                  className="btn-text"
+                  aria-label={`Reset ${MODE_INFO[m].label}`}
+                  onClick={() => {
+                    resetLevel(m);
+                    setDone(`${MODE_INFO[m].label} will find your level again next time.`);
+                  }}
+                >
+                  Reset
+                </button>
+              </li>
+            ))}
+          </ul>
+          {done && (
+            <p className="t-14" role="status" style={{ marginTop: 12 }}>
+              {done}
+            </p>
+          )}
+        </Sheet>
+      )}
     </div>
   );
 }
@@ -212,6 +244,14 @@ export function HistoryScreen() {
   const setupMode = useStore((s) => s.setup.mode);
   const [mode, setMode] = React.useState<ModeChoice>(setupMode);
   const [detail, setDetail] = React.useState<SessionResult | null>(null);
+  const [deleted, setDeleted] = React.useState<SessionResult | null>(null);
+  const restoreSession = useStore((s) => s.restoreSession);
+  // The Undo offer lasts eight seconds.
+  React.useEffect(() => {
+    if (!deleted) return;
+    const t = window.setTimeout(() => setDeleted(null), 8000);
+    return () => window.clearTimeout(t);
+  }, [deleted]);
   const forMode = history.filter((h) => h.requestedMode === mode && !h.guided);
   const series = [...forMode].reverse().slice(-20);
 
@@ -276,7 +316,21 @@ export function HistoryScreen() {
           </div>
         </>
       )}
-      {detail && <Detail r={detail} onClose={() => setDetail(null)} />}
+      {detail && <Detail r={detail} onClose={() => setDetail(null)} onDeleted={setDeleted} />}
+      {deleted && (
+        <div className="toast" role="status">
+          <span>Session deleted.</span>
+          <button
+            className="btn-text"
+            onClick={() => {
+              restoreSession(deleted);
+              setDeleted(null);
+            }}
+          >
+            Undo
+          </button>
+        </div>
+      )}
     </main>
   );
 }

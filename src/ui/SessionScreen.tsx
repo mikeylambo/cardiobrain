@@ -7,7 +7,7 @@ import { haptics } from "../haptics";
 import { MODE_INFO, MODE_VIEWS } from "../modes/registry";
 import type { Feedback } from "../modes/shared";
 import { elapsedMs, useStore } from "../state/store";
-import { easePhase, formatClock } from "../engine/session";
+import { EASE_MS, easePhase, formatClock } from "../engine/session";
 import { intervalAt } from "../engine/intervals";
 import { onAppStateChange } from "../platform/native";
 import { releaseWakeLock, requestWakeLock } from "../wakelock";
@@ -50,6 +50,7 @@ export function SessionScreen() {
   const [showPauseHint, setShowPauseHint] = React.useState(false);
   const [progressCue, setProgressCue] = React.useState<string | null>(null);
   const cuesFired = React.useRef<Set<string>>(new Set());
+  const warmedUp = React.useRef(false);
   const advanceTimer = React.useRef<number | null>(null);
   const coachCount = React.useRef<Record<string, number>>({});
 
@@ -101,8 +102,7 @@ export function SessionScreen() {
 
   // Progress cues: halfway and one minute left, shown briefly and spoken when Read aloud is on.
   React.useEffect(() => {
-    if (!active || phase !== "running" || !active.durationSeconds) return;
-    const total = active.durationSeconds * 1000;
+    if (!active || phase !== "running") return;
     const elapsed = elapsedMs(active);
     const fire = (key: string, text: string, spoken: string) => {
       if (cuesFired.current.has(key)) return;
@@ -112,6 +112,11 @@ export function SessionScreen() {
       if (prefs.speak) say(spoken);
       window.setTimeout(() => setProgressCue((c) => (c === text ? null : c)), 2600);
     };
+    // Warm-up done: only when this session actually eased in (a mode above level 1).
+    if (active.current?.eased && elapsed < EASE_MS) warmedUp.current = true;
+    if (warmedUp.current && elapsed >= EASE_MS && elapsed < EASE_MS + 5000) fire("warm", "Warm-up done.", "Warm-up done. Full pace now.");
+    if (!active.durationSeconds) return;
+    const total = active.durationSeconds * 1000;
     const acc = active.trials.length ? Math.round((active.trials.filter((t) => t.correct).length / active.trials.length) * 100) : null;
     if (total >= 120_000 && elapsed >= total / 2 && elapsed < total / 2 + 5000)
       fire("half", acc === null ? "Halfway." : `Halfway. ${acc}% so far.`, acc === null ? "Halfway." : `Halfway. ${acc} percent so far.`);

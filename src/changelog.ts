@@ -3,6 +3,18 @@ export const APP_VERSION = __APP_VERSION__;
 /** Newest first. Plain sentences, the way Settings shows them. */
 export const CHANGELOG: Array<{ version: string; items: string[] }> = [
   {
+    version: "2.5",
+    items: [
+      "Challenge a friend: a Daily result shares a link that opens the same challenge with your score to beat.",
+      "Insights charts seated vs. moving accuracy for every mode with a baseline.",
+      "Deleting a session can be undone for a few seconds.",
+      "Reset a mode's level from History if it feels far off.",
+      "A short note on Home after each update, linking to what's new.",
+      "The crash screen can copy a problem report.",
+      'A "Warm-up done" cue when a session reaches full pace.',
+    ],
+  },
+  {
     version: "2.4",
     items: [
       "A 5-minute session length.",
@@ -33,3 +45,22 @@ export const CHANGELOG: Array<{ version: string; items: string[] }> = [
     items: ["A splash screen, firmer taps and screen transitions.", "Clearer, more honest copy throughout.", "Centered countdown."],
   },
 ];
+
+/** "2.5" from "2.5.0": notes are per minor release. */
+export const releaseOf = (v: string) => v.split(".").slice(0, 2).join(".");
+
+/** The release whose notes were last acknowledged; set silently on a first install. */
+export function lastSeenRelease(): string | null {
+  try {
+    return localStorage.getItem("cb-seen-release");
+  } catch {
+    return null;
+  }
+}
+export function markReleaseSeen(): void {
+  try {
+    localStorage.setItem("cb-seen-release", releaseOf(APP_VERSION));
+  } catch {
+    // Shown again next time; harmless.
+  }
+}

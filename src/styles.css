@@ -2208,3 +2208,138 @@ html[data-feel="strong"] .tile.correct-burst {
     min-height: calc(min(var(--tile-min), 22dvh) * var(--session-scale));
   }
 }
+
+/* ---------- v2.5 ---------- */
+/* Moving vs. seated dumbbell chart (Insights) */
+.motion-chart {
+  margin: 16px 0 0;
+}
+.motion-legend {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  font-size: var(--fs-14);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.motion-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.motion-unit {
+  margin-left: auto;
+  color: var(--muted);
+}
+.motion-row {
+  display: grid;
+  grid-template-columns: 84px 1fr 44px;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  border-radius: 6px;
+  outline-offset: 2px;
+}
+.motion-row.on {
+  background: color-mix(in srgb, currentColor 6%, transparent);
+}
+.motion-row.axis {
+  min-height: 24px;
+}
+.motion-label {
+  font-size: var(--fs-14);
+  font-weight: 650;
+  padding-left: 4px;
+}
+.motion-track {
+  position: relative;
+  height: 20px;
+  margin: 0 8px;
+}
+.motion-grid {
+  position: absolute;
+  top: -12px;
+  bottom: -12px;
+  width: 1px;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+.motion-bar {
+  position: absolute;
+  top: 9px;
+  height: 2px;
+  background: currentColor;
+}
+.motion-chart .dot {
+  position: absolute;
+  top: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  display: inline-block;
+  box-sizing: border-box;
+}
+.motion-chart .dot.seated {
+  border: 2px solid currentColor;
+  background: var(--chalk);
+}
+.motion-chart .dot.moving {
+  background: currentColor;
+  box-shadow: 0 0 0 2px var(--chalk);
+}
+.motion-diff {
+  font-size: var(--fs-14);
+  font-weight: 700;
+  text-align: right;
+  padding-right: 4px;
+}
+.motion-row.axis .motion-diff {
+  color: var(--muted);
+  font-weight: 500;
+}
+.motion-tick {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.motion-detail {
+  margin-top: 8px;
+  min-height: 2.6em;
+  color: var(--muted);
+}
+
+/* A friend's daily challenge on Home */
+.rival {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.rival .daily-line {
+  flex: 1;
+}
+.rival-skip {
+  flex: none;
+  font-size: var(--fs-14);
+}
+.reset-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.reset-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 52px;
+  border-top: 1px solid var(--rule);
+}
+.reset-list .num {
+  color: var(--muted);
+  margin-left: 6px;
+}
+.motion-chart .motion-legend .dot {
+  position: static;
+  transform: none;
+}

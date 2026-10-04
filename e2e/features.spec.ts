@@ -209,7 +209,11 @@ test("a session can be deleted from its detail sheet", async ({ page }) => {
   await expect(page.locator(".session-item")).toHaveCount(3);
   await page.locator(".session-item").first().click();
   await page.getByRole("button", { name: "Delete this session" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.locator(".session-item")).toHaveCount(2);
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(page.locator(".session-item")).toHaveCount(3);
+  await page.locator(".session-item").first().click();
+  await page.getByRole("button", { name: "Delete this session" }).click();
   await expect(page.locator(".session-item")).toHaveCount(2);
 });
 
@@ -308,4 +312,95 @@ test.describe("tablet in landscape", () => {
     expect(tiles.x).toBeGreaterThan(stage.x + stage.width - 1);
     expect(stage.width + tiles.width).toBeGreaterThan(900);
   });
+});
+
+test("a challenge link opens that daily, and Results says how you did against your friend", async ({ page }) => {
+  await prime(page, { seconds: 6 });
+  const today = await page.evaluate(() => new Date().toLocaleDateString("en-CA"));
+  await page.goto(`/?daily=${today}&beat=50`);
+  await page.locator(".countdown").waitFor({ state: "detached", timeout: 15_000 });
+  for (let i = 0; i < 6; i++) {
+    if (await page.locator(".results").count()) break;
+    await tapRandomTile(page);
+    await page.waitForTimeout(500);
+  }
+  await page.locator(".results").waitFor({ timeout: 15_000 });
+  await expect(page.locator(".rival-line")).toContainText("friend's 50%");
+  expect(await page.evaluate(() => localStorage.getItem("cb-challenge"))).toBeNull();
+});
+
+test("a pending challenge waits on Home and can be skipped", async ({ page }) => {
+  await prime(page);
+  await page.goto("/");
+  const today = await page.evaluate(() => new Date().toLocaleDateString("en-CA"));
+  await page.evaluate((d) => localStorage.setItem("cb-challenge", JSON.stringify({ daily: d, score: 70 })), today);
+  await page.reload();
+  await expect(page.getByRole("button", { name: /Beat a friend's 70% on Daily #/ })).toBeVisible();
+  await page.getByRole("button", { name: "Skip the friend's challenge" }).click();
+  await expect(page.getByRole("button", { name: /^Daily #/ })).toBeVisible();
+});
+
+test("Insights charts seated vs. moving, and History can reset a level", async ({ page }) => {
+  await prime(page);
+  await page.goto("/");
+  await page.locator("#splash").waitFor({ state: "detached" });
+  await page.evaluate(() => {
+    const mk = (activity: string, accuracy: number, i: number) => ({
+      id: `m${i}`,
+      activity,
+      requestedMode: "numbers",
+      durationSeconds: 600,
+      accuracy,
+      avgRt: 900,
+      medianRt: 900,
+      challenges: 40,
+      bestStreak: 5,
+      totalScore: 0,
+      minLevel: 1,
+      maxLevel: 5,
+      switchCost: null,
+      startedAt: Date.now() - i * 3600_000,
+      finishedAt: Date.now() - i * 3600_000 + 600_000,
+      trials: [],
+      rtBasis: "correct",
+    });
+    const s = (globalThis as unknown as { __cbStore: { setState: (s: object) => void } }).__cbStore;
+    s.setState({
+      history: [mk("walk", 0.8, 1), mk("still", 0.9, 2)],
+      progress: { numbers: { level: 7, trialsSeen: 50, recent: [], lastChangeAt: -99 } },
+    });
+  });
+  await page.getByRole("button", { name: "Insights", exact: true }).click();
+  await expect(page.locator(".motion-row:not(.axis)")).toHaveCount(1);
+  await expect(page.locator(".motion-diff").first()).toHaveText("−10");
+  await page.getByRole("button", { name: "Back to Home" }).click();
+  await page.getByRole("button", { name: "History", exact: true }).click();
+  await page.getByRole("button", { name: "Reset a level" }).click();
+  await page.getByRole("button", { name: "Reset Numbers" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "find your level again" })).toBeVisible();
+  const level = await page.evaluate(
+    () => (globalThis as unknown as { __cbStore: { getState: () => { progress: Record<string, unknown> } } }).__cbStore.getState().progress.numbers,
+  );
+  expect(level).toBeUndefined();
+});
+
+test("after an update, Home points once at what's new", async ({ page }) => {
+  await prime(page);
+  await page.goto("/");
+  await seedHistory(page, 2);
+  await page.evaluate(() => localStorage.setItem("cb-seen-release", "1.0"));
+  await page.reload();
+  await page.locator("#splash").waitFor({ state: "detached" });
+  await expect(page.getByText(/^Updated to \d+\.\d+\./)).toBeVisible();
+  await page.getByRole("button", { name: "What's new" }).click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByText(/^Version \d/)
+      .first(),
+  ).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Close" }).click();
+  await page.reload();
+  await page.locator("#splash").waitFor({ state: "detached" });
+  await expect(page.getByText(/^Updated to/)).toHaveCount(0);
 });
