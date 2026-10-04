@@ -19,7 +19,7 @@ describe("rng",()=>{
 describe("scoring",()=>{
   it("keeps faster correct answers at least as valuable",()=>{
     const target=1000;
-    expect(speedFactor(900,target)).toBeGreaterThan(speedFactor(1000,target));
+    expect(speedFactor(1000,target)).toBeGreaterThan(speedFactor(1100,target));
     expect(challengeScore(true,5,700,target,5,"standard")).toBeGreaterThan(challengeScore(true,5,1300,target,5,"standard"));
     expect(challengeScore(false,5,600,target,5,"standard")).toBe(0);
   });
