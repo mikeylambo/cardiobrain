@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { mulberry32 } from "../rng";
-import { recallMode, RECALL_SHAPE_IDS } from "../../modes/recall";
+import { recallMode, RECALL_SHAPE_IDS, normalizeRecallShapeId } from "../../modes/recall";
 
 describe("Recall solvability", () => {
+  it("normalizes legacy persisted glyph IDs", () => {
+    expect(RECALL_SHAPE_IDS.map(normalizeRecallShapeId)).toEqual([...RECALL_SHAPE_IDS]);
+    expect(["●","▲","■","◆","✦","✚"].map((id) => normalizeRecallShapeId(id))).toEqual([...RECALL_SHAPE_IDS]);
+  });
+
   it("includes every required sequence symbol in the answer bank", () => {
     for (let level = 1; level <= 20; level += 1) {
       for (let seed = 0; seed < 80; seed += 1) {
