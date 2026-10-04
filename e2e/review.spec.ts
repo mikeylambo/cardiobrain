@@ -53,7 +53,7 @@ test.describe("CardioBrain visual review", () => {
     await page.getByRole("button", { name: "Set up a session" }).click();
   });
 
-  test("captures every primary screen", async ({ page }) =>
+  test("captures every primary screen", async ({ page }) => {
     await boot(page);
     await page.screenshot({ path: "artifacts/home.png", fullPage: true });
 
@@ -93,9 +93,30 @@ test.describe("CardioBrain visual review", () => {
       await startMode(page, mode);
       await expect(page.locator(".answer-pad").first()).toBeVisible({ timeout: 4000 });
       await page.screenshot({ path: `artifacts/mode-${mode.toLowerCase().replace(/[^a-z]+/g, "-")}.png`, fullPage: true });
+      if (mode === "Recall") {
+        const shown = page.locator(".recall-symbol .shape-glyph").first();
+        await expect(shown).toBeVisible({ timeout: 3000 });
+        const classes = await shown.getAttribute("class");
+        const shapeClass = (classes ?? "").split(/\s+/).find((name) => name.startsWith("shape-"));
+        expect(shapeClass).toBeTruthy();
+        await expect(page.locator(`.answer-pad .${shapeClass}`)).toHaveCount(1);
+      }
       await playUntilResults(page);
     });
   }
+
+  test("full reset returns to first launch and clears the session history", async ({ page }) => {
+    await boot(page);
+    await startMode(page, "Numbers");
+    await playUntilResults(page);
+    await page.getByText("View history").click();
+    await expect(page.locator(".session-row")).toHaveCount(1);
+    await page.getByText("SETTINGS").click();
+    await page.getByRole("button", { name: "Reset app" }).first().click();
+    await expect(page.getByRole("alertdialog")).toBeVisible();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Reset app" }).click();
+    await expect(page.getByText("One screen. One tap.")).toBeVisible();
+  });
 
   test("pause and resume survives a full short session", async ({ page }) => {
     await boot(page);
