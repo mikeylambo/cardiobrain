@@ -32,12 +32,8 @@ export const reactMode: ModeDefinition = {
       data: { zone: zones[index]!.className, noGo }
     };
   },
-  View: ({ challenge, onAnswer, onPresented }) => {
+  View: ({ challenge, onAnswer }) => {
     const data = challenge.data as { zone:string; noGo:boolean };
-    React.useEffect(() => {
-      const frame = requestAnimationFrame(() => onPresented());
-      return () => cancelAnimationFrame(frame);
-    }, [challenge.id, onPresented]);
     return (
       <div className="mode-view react-mode">
         <div className="eyebrow">{data.noGo ? "HOLD" : "REACT"}</div>
