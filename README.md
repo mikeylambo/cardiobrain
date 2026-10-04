@@ -40,4 +40,6 @@ npm run build
 npm run e2e
 ```
 
+Design rules live in DESIGN.md. Critical tap paths live in FLOWS.md. The repeatable visual/function review loop lives in REVIEW.md.
+
 The production project is connected to the `mikeylambo/cardiobrain` GitHub repository and deploys as a static Vite app on Vercel.
