@@ -18,6 +18,9 @@ This file records deliberate product and implementation choices made during the 
 - Trial reaction timing uses performance.now(). Session wall-clock duration also keeps an epoch timestamp so an interrupted session can be resumed after a reload.
 - A self-hosted font is intentionally deferred until a binary asset pipeline is established; the visual system uses a premium system-font stack so offline behavior remains complete.
 
+- Barsmith's existing rhyme service was inspected. Its production engine uses stressed-tail comparison and coda/vowel similarity. CardioBrain reuses that scoring approach in a deliberately compact, curated v1 word corpus rather than importing Barsmith's ~804 KB pronunciation payload.
+- The four JSX-bearing mode files were corrected to .tsx after the first Vercel build exposed TypeScript parser errors. This is now part of the release gate.
+
 ## UX
 - Active activity controls the accent family through CSS variables.
 - Running mode deliberately removes navigation chrome and keeps the interaction zone large.
