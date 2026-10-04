@@ -85,7 +85,7 @@ export const numbersMode: ModeDefinition = {
     };
   },
   View: ({ challenge, onAnswer }) => (
-    <div className="mode-view">
+    <div className="mode-view numbers-mode">
       <div className="eyebrow">SOLVE</div>
       <motion.div className="number-stimulus" initial={{opacity:0,scale:.96}} animate={{opacity:1,scale:1}} key={challenge.id}>
         {challenge.prompt}
