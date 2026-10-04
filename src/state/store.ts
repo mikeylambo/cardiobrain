@@ -33,6 +33,7 @@ export interface ActiveSessionSnapshot {
   currentChallenge: Challenge;
   currentMode: ModeId;
   trialLog: TrialResult[];
+  answeredChallengeId?: string | null;
   streak: number;
   bestStreak: number;
   difficulty: PersistedProgress;
@@ -178,6 +179,7 @@ export const useCardioStore = create<Store>((set, get) => ({
       currentChallenge:challenge,
       currentMode:mode,
       trialLog:[],
+      answeredChallengeId:null,
       streak:0,
       bestStreak:0,
       difficulty:state,
@@ -224,15 +226,18 @@ export const useCardioStore = create<Store>((set, get) => ({
     const active=state.active;
     if (!active || active.status !== "running") return;
     const challenge=active.currentChallenge;
-    const responseMs=Math.max(1,performance.now()-active.trialStartedPerf);
+    if (active.answeredChallengeId === challenge.id) return;
+    const claimed = { ...active, answeredChallengeId: challenge.id };
+    set({active:claimed});
+    const responseMs=Math.max(1,performance.now()-claimed.trialStartedPerf);
     const correct=answerId===challenge.correctAnswer;
-    const nextStreak=correct ? active.streak+1 : 0;
+    const nextStreak=correct ? claimed.streak+1 : 0;
     const score=challengeScore(correct,challenge.level,responseMs,challenge.targetRt,nextStreak,state.prefs.difficultyBias);
     const trial:TrialResult={
-      id:`${active.id}-${active.trialIndex}`,
+      id:`${claimed.id}-${claimed.trialIndex}`,
       challengeId:challenge.id,
-      mode:active.currentMode,
-      activity:active.activity,
+      mode:claimed.currentMode,
+      activity:claimed.activity,
       level:challenge.level,
       answerId,
       correctAnswer:challenge.correctAnswer,
@@ -242,23 +247,23 @@ export const useCardioStore = create<Store>((set, get) => ({
       streak:nextStreak,
       timestamp:Date.now()
     };
-    const difficultyState=ensureProgress(active.difficulty);
+    const difficultyState=ensureProgress(claimed.difficulty);
     const updated=updateDifficulty(difficultyState[active.currentMode]!, {correct,responseMs,targetRt:challenge.targetRt}, active.activity, active.currentMode, state.prefs.difficultyBias);
     const difficulty={...difficultyState,[active.currentMode]:updated};
     saveProgress(difficulty);
-    const trialLog=[...active.trialLog,trial];
-    const nextIndex=active.trialIndex+1;
-    const elapsed=elapsedSeconds(active);
-    if (active.durationSeconds !== null && elapsed >= active.durationSeconds) {
-      const temp={...active,trialLog,trialIndex:nextIndex,streak:nextStreak,bestStreak:Math.max(active.bestStreak,nextStreak),difficulty,status:"running" as const};
+    const trialLog=[...claimed.trialLog,trial];
+    const nextIndex=claimed.trialIndex+1;
+    const elapsed=elapsedSeconds(claimed);
+    if (claimed.durationSeconds !== null && elapsed >= claimed.durationSeconds) {
+      const temp={...claimed,trialLog,trialIndex:nextIndex,streak:nextStreak,bestStreak:Math.max(claimed.bestStreak,nextStreak),difficulty,status:"running" as const};
       set({active:temp});
       get().finishSession();
       return;
     }
-    const nextMode=modeFor(active.requestedMode,elapsed,nextIndex);
+    const nextMode=modeFor(claimed.requestedMode,elapsed,nextIndex);
     const nextLevel=ensureProgress(difficulty)[nextMode]?.level ?? 1;
-    const nextChallenge=newChallenge(nextMode,nextLevel,active.activity,state.prefs.difficultyBias,active.seed,nextIndex);
-    const next={...active,trialIndex:nextIndex,currentChallenge:nextChallenge,currentMode:nextMode,trialLog,streak:nextStreak,bestStreak:Math.max(active.bestStreak,nextStreak),difficulty,trialStartedPerf:performance.now()};
+    const nextChallenge=newChallenge(nextMode,nextLevel,claimed.activity,state.prefs.difficultyBias,claimed.seed,nextIndex);
+    const next={...claimed,trialIndex:nextIndex,currentChallenge:nextChallenge,currentMode:nextMode,trialLog,streak:nextStreak,bestStreak:Math.max(claimed.bestStreak,nextStreak),difficulty,answeredChallengeId:null,trialStartedPerf:performance.now()};
     void saveActiveSession(next);
     set({active:next});
   },
