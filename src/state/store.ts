@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { Activity, Challenge, DifficultyBias, DurationChoice, ModeId, SessionResult, SessionStatus, TrialResult } from "../engine/types";
 import { hashSeed, mulberry32 } from "../engine/rng";
-import { CORE_MODE_IDS, MODE_REGISTRY } from "../modes/registry";
+import { MIX_MODE_IDS, CORE_MODE_IDS, MODE_REGISTRY } from "../modes/registry";
 import { challengeScore, sessionMetrics } from "../engine/scoring";
 import { createDifficultyState, targetResponseMs, updateDifficulty, type DifficultyState } from "../engine/difficulty";
 import { makeSessionId, transition } from "../engine/session";
@@ -68,7 +68,7 @@ function elapsedSeconds(session: ActiveSession): number {
 function modeFor(requestedMode: ModeId | "mix", elapsed: number, trialIndex: number): ModeId {
   if (requestedMode !== "mix") return requestedMode;
   const block = Math.floor(elapsed / 75);
-  return CORE_MODE_IDS[(block + Math.floor(trialIndex / 6)) % CORE_MODE_IDS.length]!;
+  return MIX_MODE_IDS[(block + Math.floor(trialIndex / 6)) % MIX_MODE_IDS.length]!;
 }
 
 interface Store {
