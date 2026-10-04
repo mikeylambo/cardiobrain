@@ -71,6 +71,17 @@ function modeFor(requestedMode: ModeId | "mix", elapsed: number, trialIndex: num
   return MIX_MODE_IDS[(block + Math.floor(trialIndex / 6)) % MIX_MODE_IDS.length]!;
 }
 
+function configuredDurationSeconds(choice: DurationChoice): number | null {
+  if (choice === "open") return null;
+  if (typeof window !== "undefined" && (window.location.hostname === "127.0.0.1" || window.location.hostname === "localhost")) {
+    try {
+      const override = Number(sessionStorage.getItem("cb-test-duration-seconds"));
+      if (Number.isFinite(override) && override > 0 && override < 3600) return override;
+    } catch {}
+  }
+  return DURATION_SECONDS[choice];
+}
+
 interface Store {
   screen: AppScreen;
   hydrated: boolean;
@@ -151,7 +162,7 @@ export const useCardioStore = create<Store>((set, get) => ({
     const state = ensureProgress(progress);
     const level = state[mode]?.level ?? 1;
     const challenge = newChallenge(mode, level, setup.activity, prefs.difficultyBias, seed, 0);
-    const durationSeconds = setup.duration === "open" ? null : DURATION_SECONDS[setup.duration];
+    const durationSeconds = configuredDurationSeconds(setup.duration);
     const active:ActiveSession = {
       id:makeSessionId(),
       activity:setup.activity,
