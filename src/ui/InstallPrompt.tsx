@@ -26,7 +26,7 @@ export function InstallPrompt({ onClose }: { onClose: () => void }) {
     onClose();
   };
   return (
-    <Sheet title="Keep it one tap away" onClose={close}>
+    <Sheet title="Add to Home Screen" onClose={close}>
       <p className="t-17">Add CardioBrain to your Home Screen. It opens full screen and works offline.</p>
       <ol className="install-steps t-17" style={{ listStyle: "none", padding: 0 }}>
         <li>
@@ -37,7 +37,7 @@ export function InstallPrompt({ onClose }: { onClose: () => void }) {
         </li>
       </ol>
       <button className="btn-primary" onClick={close}>
-        Got it
+        Done
       </button>
     </Sheet>
   );

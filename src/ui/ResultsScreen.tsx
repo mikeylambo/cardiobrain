@@ -84,7 +84,7 @@ export function ResultsScreen() {
       const { renderShareCard } = await import("./shareCard");
       const blob = await renderShareCard(result, title, d, format, kicker);
       const text = result.daily
-        ? `CardioBrain Daily #${dailyNumber(result.daily)}: ${pct(result.accuracy)}%, ${secs(result.avgRt)} average. Can you beat it?`
+        ? `CardioBrain Daily #${dailyNumber(result.daily)}: ${pct(result.accuracy)}%, ${secs(result.avgRt)} average.`
         : `${pct(result.accuracy)}% on CardioBrain. ${title}`;
       if (isNative && (await shareNative(blob, text))) {
         setShareState("idle");

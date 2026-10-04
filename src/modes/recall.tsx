@@ -66,7 +66,7 @@ export function RecallView({ challenge, onAnswer, onPresented, feedback }: ModeV
   return (
     <>
       <div className="stage">
-        <p className="cue">{showing ? "Watch" : fb ? (fb.correct ? "Exactly right" : "Not quite") : "Now repeat it"}</p>
+        <p className="cue">{showing ? "Watch" : fb ? (fb.correct ? "Correct" : "Wrong order") : "Now repeat it"}</p>
         {showing ? (
           <>
             <div className="recall-show" aria-hidden="true">

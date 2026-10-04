@@ -28,7 +28,7 @@ export const MODE_INFO: Record<ModeChoice, ModeInfo> = {
   recall: { id: "recall", label: "Recall", description: "Watch a sequence, then repeat it.", instruction: "Watch the shapes, then repeat them." },
   rhyme: { id: "rhyme", label: "Rhyme", description: "Find the word that rhymes.", instruction: "Listen for the sound, not the spelling." },
   nback: { id: "nback", label: "N-back", description: "Same letter as a few back?", instruction: "Tap Match when the letter repeats from N back." },
-  estimate: { id: "estimate", label: "Estimate", description: "Dots flash. About how many?", instruction: "Don't count. Get a feel for it." },
+  estimate: { id: "estimate", label: "Estimate", description: "Dots flash. About how many?", instruction: "Go by feel. There isn't time to count." },
   rotate: { id: "rotate", label: "Rotate", description: "Same shape turned, or a mirror?", instruction: "Turn it in your head. Same, or mirrored?" },
 };
 

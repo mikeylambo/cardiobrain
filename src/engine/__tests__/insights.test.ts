@@ -68,7 +68,7 @@ describe("results headline", () => {
     expect(h(0.9, 1300)).toBe("More accurate, a touch slower.");
     expect(h(0.75, 800)).toBe("Faster, but less accurate than last time.");
     expect(h(0.77, 1300)).toBe("A little less accurate than last time.");
-    expect(h(0.7, 1000)).toBe("Tougher than your last bike session. It happens.");
+    expect(h(0.7, 1000)).toBe("Less accurate than your last bike session.");
     expect(h(0.81, 850)).toBe("Just as accurate, and quicker.");
     expect(h(0.81, 1200)).toBe("Just as accurate, a touch slower.");
     expect(h(0.81, 1020)).toBe("Right in line with your last bike session.");

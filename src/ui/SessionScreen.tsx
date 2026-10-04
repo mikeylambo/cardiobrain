@@ -18,7 +18,7 @@ const FEEDBACK_MS = { correct: 280, wrong: 700 };
 const TRANSITION_MS = 1200;
 /** Coach lines show on the first few challenges of a mode you have never played. */
 const COACH_TRIALS = 3;
-const GUIDED_COACH = ["Tap the answer.", "Faster is better, but accuracy counts more.", "That's the whole game."];
+const GUIDED_COACH = ["Tap the answer.", "Faster is better, but accuracy counts more.", "Pause is top right."];
 
 export function SessionScreen() {
   // Every hook sits above the first return. v1 crashed on pause because it did not.
@@ -114,7 +114,7 @@ export function SessionScreen() {
     const toWork = active ? intervalAt(elapsedMs(active), active.intervals, active.playDuring).bout === "work" : true;
     sfx.bout(toWork);
     haptics.switch();
-    if (prefs.speak) say(resting ? (toWork ? "Push. Challenges are paused." : "Recover. Challenges are paused.") : "Challenges back on.");
+    if (prefs.speak) say(resting ? (toWork ? "Work bout. Challenges paused." : "Recovery. Challenges paused.") : "Challenges back on.");
   }, [resting, phase, active, prefs.speak]);
 
   const handleAnswer = React.useCallback(
@@ -136,7 +136,7 @@ export function SessionScreen() {
           haptics.streak();
         }, 140);
       }
-      setAnnounce(outcome.correct ? (outcome.milestone ? `Correct. ${outcome.streak} in a row.` : "Correct.") : "Not quite.");
+      setAnnounce(outcome.correct ? (outcome.milestone ? `Correct. ${outcome.streak} in a row.` : "Correct.") : "Incorrect.");
       if (advanceTimer.current !== null) window.clearTimeout(advanceTimer.current);
       advanceTimer.current = window.setTimeout(
         () => {
@@ -343,11 +343,9 @@ export function SessionScreen() {
         )}
         {phase === "running" && resting && (
           <div className="rest-card" role="status" aria-live="polite">
-            <p className="cue">{bout.bout === "rest" ? "Recover" : "Push"}</p>
+            <p className="cue">{bout.bout === "rest" ? "Recovery" : "Work bout"}</p>
             <p className="display rest-clock num">{formatClock(bout.remainingMs)}</p>
-            <p className="t-24">
-              {bout.bout === "rest" ? "Breathe. Challenges return when the next work bout starts." : "Work hard. Challenges return when you recover."}
-            </p>
+            <p className="t-24">{bout.bout === "rest" ? "Challenges return at the next work bout." : "Challenges return at your next recovery."}</p>
           </div>
         )}
       </div>

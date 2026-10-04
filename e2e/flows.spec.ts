@@ -11,7 +11,7 @@ test("first launch: welcome to the first challenge in under 15 seconds, then res
   expect(Date.now() - t0).toBeLessThan(15000);
   await play(page, 14000);
   await page.locator(".results").waitFor();
-  await expect(page.getByRole("heading", { name: "That's the whole game." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "First round done." })).toBeVisible();
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("button", { name: "Start", exact: true })).toBeVisible();
   // Reload: onboarding is done, so it lands on Home, with the round in history.

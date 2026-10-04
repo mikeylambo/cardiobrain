@@ -61,7 +61,7 @@ export function deltas(result: SessionResult, prev: SessionResult | null): Delta
  * count as "the same"; when one goes up and the other down, say both.
  */
 export function headline(result: SessionResult, prev: SessionResult | null): string {
-  if (result.guided) return "That's the whole game.";
+  if (result.guided) return "First round done.";
   const noun = sessionNoun(result);
   if (!prev) return "Baseline set.";
   const d = deltas(result, prev);
@@ -72,7 +72,7 @@ export function headline(result: SessionResult, prev: SessionResult | null): str
   if (acc >= 3 && !slower) return `Sharper than your last ${noun}.`;
   if (acc >= 3 && slower) return "More accurate, a touch slower.";
   if (acc <= -3 && faster) return "Faster, but less accurate than last time.";
-  if (acc <= -6) return `Tougher than your last ${noun}. It happens.`;
+  if (acc <= -6) return `Less accurate than your last ${noun}.`;
   if (acc <= -3) return "A little less accurate than last time.";
   if (faster) return "Just as accurate, and quicker.";
   if (slower) return "Just as accurate, a touch slower.";

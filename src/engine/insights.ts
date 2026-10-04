@@ -112,7 +112,7 @@ export function findInsights(history: SessionResult[], labels: { mode: (m: ModeC
         body:
           d < 0
             ? `Your accuracy is ${-d} points lower when you rate a session 7 or above than when you rate it 5 or below.`
-            : `Your accuracy is ${d} points higher on sessions you rate 7 or above. Effort seems to switch you on.`,
+            : `Your accuracy is ${d} points higher on sessions you rate 7 or above.`,
       });
   }
 
@@ -138,7 +138,7 @@ export function findInsights(history: SessionResult[], labels: { mode: (m: ModeC
     if (Math.abs(lift) >= 0.3)
       out.push({
         id: "mood",
-        title: lift > 0 ? "You leave in a better mood" : "Sessions are draining your mood",
+        title: lift > 0 ? "You leave in a better mood" : "Your mood drops during sessions",
         body:
           lift > 0
             ? `Across ${moods.length} check-ins, your mood rises by ${lift.toFixed(1)} on a 5-point scale from start to finish.`
@@ -187,7 +187,7 @@ export function findInsights(history: SessionResult[], labels: { mode: (m: ModeC
   if (thisWeek + lastWeek >= 2) {
     out.push({
       id: "consistency",
-      title: thisWeek >= lastWeek ? "Keeping it up" : "A quieter week",
+      title: "This week",
       body: `${thisWeek} ${thisWeek === 1 ? "session" : "sessions"} this week, ${lastWeek} last week.`,
     });
   }
