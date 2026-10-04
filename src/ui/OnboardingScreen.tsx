@@ -4,7 +4,7 @@ import { useStore } from "../state/store";
 import { Mark } from "./components";
 import { ACTIVITIES, ACTIVITY_LABEL } from "./copy";
 
-const HINT: Record<Activity, string> = { walk: "Steady pace", bike: "Indoor or out", stairs: "Climber or steps", run: "Treadmill or road" };
+const HINT: Record<Exclude<Activity, "still">, string> = { walk: "Steady pace", bike: "Indoor or out", stairs: "Climber or steps", run: "Treadmill or road" };
 
 /** First launch: one sentence, four activities, straight into a guided round. */
 export function WelcomeScreen() {
@@ -29,7 +29,7 @@ export function WelcomeScreen() {
         {ACTIVITIES.map((a) => (
           <button key={a} className="activity-block" data-activity={a} onClick={() => pick(a)}>
             <span className="display">{ACTIVITY_LABEL[a]}</span>
-            <small>{HINT[a]}</small>
+            <small>{HINT[a as Exclude<Activity, "still">]}</small>
           </button>
         ))}
       </div>

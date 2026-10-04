@@ -259,6 +259,13 @@ export const generateRhyme: Generator = (level, rng, ctx): Challenge => {
     options: options.map((o) => ({ id: `w-${o.word}`, label: o.word })),
     correctAnswer: `w-${built.correct.word}`,
     targetRt: targetResponseMs("rhyme", level, ctx.activity, ctx.bias),
+    speech:
+      built.type === "odd"
+        ? `Which one doesn't rhyme?`
+        : built.type === "chain"
+          ? `${built.shown.map((s) => s.word).join(", ")}. What comes next?`
+          : `${built.cue} ${built.prompt}.`,
+    voice: true,
     data: { type: built.type, shown: built.shown.map((s) => s.word) },
   };
 };

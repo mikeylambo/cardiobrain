@@ -47,7 +47,20 @@ export function ReactView({ challenge, onAnswer, onPresented, feedback }: ModeVi
             : ""}
         </p>
       </div>
-      <Tiles options={challenge.options} onPick={onAnswer} feedback={fb} disabled={Boolean(fb)} variant="blank" />
+      <Tiles
+        options={challenge.options}
+        onPick={onAnswer}
+        feedback={fb}
+        disabled={Boolean(fb)}
+        render={(o) => (
+          // Each tile carries a tiny map of its own place, so the pad never looks empty.
+          <span className="minimap" aria-hidden="true">
+            {ZONES.map((z) => (
+              <i key={z} className={z === o.id ? "on" : undefined} />
+            ))}
+          </span>
+        )}
+      />
     </>
   );
 }

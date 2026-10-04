@@ -54,12 +54,29 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.mikeylambo.cardiobrain</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>cardiobrain</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>CardioBrain listens for your answers when you turn on voice answers. Audio is not recorded or sent anywhere by CardioBrain.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Speech recognition turns your spoken answers into taps when voice answers are on.</string>
 	<key>UIRequiresFullScreen</key>
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>

@@ -5,6 +5,7 @@ export const ACTIVITY_RESPONSE_MULTIPLIER: Record<Activity, number> = {
   bike: 1.1,
   stairs: 1.5,
   run: 1.3,
+  still: 1,
 };
 
 const BIAS_MULTIPLIER: Record<DifficultyBias, number> = {
@@ -22,6 +23,9 @@ export function targetResponseMs(mode: ModeId, level: number, activity: Activity
     react: 900,
     recall: 2400,
     rhyme: 1700,
+    nback: 1500,
+    estimate: 1900,
+    rotate: 2300,
   };
   const normalized = Math.max(0, Math.min(19, level - 1));
   const levelCompression = Math.max(0.48, 1 - normalized * 0.028);

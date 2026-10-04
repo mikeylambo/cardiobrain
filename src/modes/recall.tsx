@@ -1,5 +1,7 @@
 import React from "react";
 import { sfx } from "../audio/synth";
+import { say } from "../audio/speech";
+import { useStore } from "../state/store";
 import { haptics } from "../haptics";
 import { SHAPE_LABEL, type Shape } from "./generate/recall";
 import type { ModeViewProps } from "./shared";
@@ -29,6 +31,7 @@ export function RecallView({ challenge, onAnswer, onPresented, feedback }: ModeV
           setStep(i);
           setVisible(true);
           sfx.symbol(shape);
+          if (useStore.getState().prefs.speak) say(SHAPE_LABEL[shape]);
         }, at),
       );
       timers.push(window.setTimeout(() => setVisible(false), at + stepMs - GAP_MS));
@@ -73,9 +76,11 @@ export function RecallView({ challenge, onAnswer, onPresented, feedback }: ModeV
                 </span>
               )}
             </div>
-            <p className="recall-step num">
-              {Math.max(0, step + 1)} of {sequence.length}
-            </p>
+            <div className="recall-dots" aria-label={`${Math.max(0, step + 1)} of ${sequence.length}`}>
+              {sequence.map((_, i) => (
+                <i key={i} className={i <= step ? "on" : undefined} />
+              ))}
+            </div>
             <p className="sr-only" aria-live="assertive">
               {step >= 0 ? SHAPE_LABEL[sequence[step]!] : ""}
             </p>

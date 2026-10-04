@@ -39,6 +39,13 @@ const pairs = [
   ["Primary button (Chalk) on Lagoon", chalk, token("lagoon"), 3],
   ["Primary button (Chalk) on Ultraviolet", chalk, token("ultraviolet"), 3],
   ["Chart line (Asphalt) on Chalk", ink, chalk, 3],
+  ["Seated: text on Chalk field", ink, chalk, 4.5],
+  ["Seated: tile edge (Asphalt) on Chalk", ink, chalk, 3],
+  ["Dark: Walk tint on Asphalt", token("lagoon-dark"), ink, 4.5],
+  ["Dark: Bike on Asphalt", token("signal"), ink, 4.5],
+  ["Dark: Stairs tint on Asphalt", token("ultraviolet-dark"), ink, 4.5],
+  ["Dark: Run tint on Asphalt", token("vermilion-dark"), ink, 4.5],
+  ["Dark: coach line (Asphalt on Stairs tint)", ink, token("ultraviolet-dark"), 4.5],
 ];
 
 let failed = 0;

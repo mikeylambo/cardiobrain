@@ -3,7 +3,7 @@ import { mulberry32 } from "../rng";
 import { generateNumbers } from "../../modes/generate/numbers";
 import { generateSwitch } from "../../modes/generate/switch";
 
-const ctx = (i: number) => ({ activity: "bike" as const, bias: "standard" as const, seed: i % 97, trialIndex: i, modeTrialIndex: i });
+const ctx = (i: number) => ({ activity: "bike" as const, bias: "standard" as const, seed: i % 97, trialIndex: i, modeTrialIndex: i, recent: [] });
 const MAX_TILE_LABEL = 12;
 
 describe("Numbers", () => {

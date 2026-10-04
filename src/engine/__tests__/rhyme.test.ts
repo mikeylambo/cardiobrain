@@ -5,7 +5,7 @@ import { buildRhyme, generateRhyme, RHYME_TYPES, setRhymeData } from "../../mode
 import { buildIndex, rhymes } from "../../modes/rhyme-engine";
 
 const text = readFileSync(new URL("../../data/rhyme-words.txt", import.meta.url), "utf8");
-const ctx = (i: number) => ({ activity: "walk" as const, bias: "standard" as const, seed: i, trialIndex: i, modeTrialIndex: i });
+const ctx = (i: number) => ({ activity: "walk" as const, bias: "standard" as const, seed: i, trialIndex: i, modeTrialIndex: i, recent: [] });
 
 beforeAll(() => setRhymeData(text));
 

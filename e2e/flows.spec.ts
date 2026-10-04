@@ -97,7 +97,7 @@ test("works offline after one load: reload, play Rhyme, open History", async ({ 
   expect(errors.filter((e) => !/ERR_INTERNET_DISCONNECTED/.test(e))).toEqual([]);
 });
 
-test("share card renders a non-empty PNG", async ({ page }) => {
+test("share card renders non-empty PNGs in poster and story formats", async ({ page }) => {
   await prime(page, { mode: "numbers", seconds: 5 });
   await page.goto("/");
   await page.evaluate(() => {
@@ -107,11 +107,16 @@ test("share card renders a non-empty PNG", async ({ page }) => {
   await startFromHome(page);
   await play(page, 8000);
   await page.locator(".results").waitFor();
-  const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Share" }).click();
-  const file = await download;
-  const path = await file.path();
   const { statSync, readFileSync } = await import("node:fs");
-  expect(statSync(path!).size).toBeGreaterThan(20_000);
-  expect(readFileSync(path!).subarray(1, 4).toString()).toBe("PNG");
+  const sizes: Record<string, [number, number]> = { Poster: [1080, 1350], Story: [1080, 1920] };
+  for (const format of ["Poster", "Story"]) {
+    await page.getByRole("button", { name: "Share", exact: true }).click();
+    const download = page.waitForEvent("download");
+    await page.getByRole("dialog").getByRole("button", { name: format }).click();
+    const path = await (await download).path();
+    const buf = readFileSync(path!);
+    expect(statSync(path!).size).toBeGreaterThan(20_000);
+    expect(buf.subarray(1, 4).toString()).toBe("PNG");
+    expect([buf.readUInt32BE(16), buf.readUInt32BE(20)]).toEqual(sizes[format]);
+  }
 });

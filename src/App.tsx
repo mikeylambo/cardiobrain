@@ -6,15 +6,21 @@ import { onStorageFailure } from "./storage";
 import { useStore, type Screen } from "./state/store";
 import { Mark } from "./ui/components";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
-import { HistoryScreen } from "./ui/HistoryScreen";
+import { loadRhymeData } from "./modes/generate/rhyme";
+import { MoodSheet } from "./ui/MoodSheet";
+import { startFromLink } from "./platform/links";
 import { HomeScreen } from "./ui/HomeScreen";
 import { WelcomeScreen } from "./ui/OnboardingScreen";
 import { ResultsScreen } from "./ui/ResultsScreen";
 import { SessionScreen } from "./ui/SessionScreen";
-import { SettingsScreen } from "./ui/SettingsScreen";
+
+// Screens you visit between workouts load on demand; the session path stays in the main bundle.
+const HistoryScreen = React.lazy(() => import("./ui/HistoryScreen").then((m) => ({ default: m.HistoryScreen })));
+const InsightsScreen = React.lazy(() => import("./ui/InsightsScreen").then((m) => ({ default: m.InsightsScreen })));
+const SettingsScreen = React.lazy(() => import("./ui/SettingsScreen").then((m) => ({ default: m.SettingsScreen })));
 import { ACTIVITY_COLOR, ACTIVITY_ON } from "./ui/copy";
 
-const PAPER = new Set<Screen>(["history", "settings"]);
+const PAPER = new Set<Screen>(["history", "settings", "insights"]);
 const INK = new Set<Screen>(["welcome", "boot"]);
 
 export function App() {
@@ -26,7 +32,13 @@ export function App() {
   const [storageNotice, setStorageNotice] = React.useState(false);
 
   React.useEffect(() => {
-    void boot().then(() => hideSplash());
+    void boot().then(() => {
+      void hideSplash();
+      startFromLink();
+      // Warm the rhyme words while nothing else is happening, so the first Rhyme or Mix starts instantly.
+      const idle = (cb: () => void) => (typeof requestIdleCallback === "function" ? requestIdleCallback(cb, { timeout: 8000 }) : setTimeout(cb, 3000));
+      idle(() => void loadRhymeData().catch(() => undefined));
+    });
     onStorageFailure(() => setStorageNotice(true));
     const unlock = () => unlockAudio();
     window.addEventListener("pointerdown", unlock, { once: true });
@@ -61,8 +73,12 @@ export function App() {
       {screen === "home" && <HomeScreen />}
       {screen === "session" && <SessionScreen />}
       {screen === "results" && <ResultsScreen />}
-      {screen === "history" && <HistoryScreen />}
-      {screen === "settings" && <SettingsScreen />}
+      <React.Suspense fallback={<div className="screen paper" />}>
+        {screen === "history" && <HistoryScreen />}
+        {screen === "settings" && <SettingsScreen />}
+        {screen === "insights" && <InsightsScreen />}
+      </React.Suspense>
+      <MoodSheet />
       {storageNotice && screen !== "session" && (
         <div className="toast" role="status">
           <span>Storage is unavailable, so results last until you close the app.</span>

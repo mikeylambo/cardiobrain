@@ -3,11 +3,44 @@ import { unlockAudio } from "../audio/synth";
 import { MODE_INFO } from "../modes/registry";
 import { useStore } from "../state/store";
 import { formatClock } from "../engine/session";
+import { dailyKey, dailyNumber } from "../engine/daily";
+import { sessionsThisWeek } from "../engine/insights";
 import { Mark } from "./components";
-import { ACTIVITY_LABEL, durationLabel, pct, presetLine } from "./copy";
+import { ACTIVITY_LABEL, durationLabel, pct } from "./copy";
 import { SetupSheet } from "./SetupScreen";
 import { InstallPrompt, shouldOfferInstall } from "./InstallPrompt";
 import { UpdateToast } from "./UpdateToast";
+
+/** Sessions this week against the weekly goal, as a ring. */
+function GoalRing({ done, goal }: { done: number; goal: number }) {
+  const r = 26;
+  const c = 2 * Math.PI * r;
+  const frac = Math.min(1, done / goal);
+  return (
+    <div className="goal" role="img" aria-label={`${done} of ${goal} sessions this week`}>
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r={r} fill="none" stroke="currentColor" strokeOpacity="0.28" strokeWidth="7" />
+        <circle
+          cx="32"
+          cy="32"
+          r={r}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="7"
+          strokeDasharray={`${c * frac} ${c}`}
+          strokeLinecap={frac > 0 && frac < 1 ? "round" : "butt"}
+          transform="rotate(-90 32 32)"
+        />
+      </svg>
+      <span className="goal-text">
+        <strong className="num">
+          {done} of {goal}
+        </strong>
+        <span>{done >= goal ? "Weekly goal met." : "this week"}</span>
+      </span>
+    </div>
+  );
+}
 
 export function HomeScreen() {
   const setup = useStore((s) => s.setup);
@@ -15,7 +48,8 @@ export function HomeScreen() {
   const recoverable = useStore((s) => s.recoverable);
   const error = useStore((s) => s.error);
   const flags = useStore((s) => s.flags);
-  const startSession = useStore((s) => s.startSession);
+  const prefs = useStore((s) => s.prefs);
+  const requestStart = useStore((s) => s.requestStart);
   const resumeRecovered = useStore((s) => s.resumeRecovered);
   const discardRecovered = useStore((s) => s.discardRecovered);
   const clearError = useStore((s) => s.clearError);
@@ -23,10 +57,13 @@ export function HomeScreen() {
   const [sheet, setSheet] = React.useState(false);
   const [install, setInstall] = React.useState(() => shouldOfferInstall(flags.installOffered, history.length));
 
-  const last = history.find((h) => !h.guided) ?? history[0];
-  const start = () => {
+  const today = dailyKey();
+  const daily = history.find((h) => h.daily === today);
+  const last = history.find((h) => !h.guided && !h.daily) ?? history[0];
+  const week = sessionsThisWeek(history);
+  const start = (opts?: { daily?: boolean }) => {
     unlockAudio();
-    void startSession();
+    requestStart(opts);
   };
 
   return (
@@ -42,7 +79,9 @@ export function HomeScreen() {
         <h1 className="display">{ACTIVITY_LABEL[setup.activity]}</h1>
         <p className="home-preset">
           {MODE_INFO[setup.mode].label}, {durationLabel(setup.duration)}
+          {setup.intervals !== "off" ? `, intervals ${setup.intervals}` : ""}
         </p>
+        <GoalRing done={week} goal={prefs.weeklyGoal} />
       </div>
 
       <div className="home-actions">
@@ -75,16 +114,19 @@ export function HomeScreen() {
           </div>
         )}
         {!recoverable && (
-          <button className="btn-primary" onClick={start} aria-describedby="preset">
+          <button className="btn-primary" onClick={() => start()}>
             Start
           </button>
         )}
-        <div className="btn-row spread">
-          <span id="preset" className="sr-only">
-            {presetLine(setup.activity, setup.mode, setup.duration)}
+        <button className="daily" onClick={() => !daily && start({ daily: true })} aria-disabled={Boolean(daily)}>
+          <span className="daily-title">Daily #{dailyNumber(today)}</span>
+          <span className="daily-sub">
+            {daily ? `Done today: ${pct(daily.accuracy)}%. A new one tomorrow.` : "3 minutes, the same challenge for everyone today."}
           </span>
+        </button>
+        <div className="btn-row spread">
           {recoverable && (
-            <button className="btn-text" onClick={start}>
+            <button className="btn-text" onClick={() => start()}>
               Start a new one
             </button>
           )}
@@ -100,6 +142,9 @@ export function HomeScreen() {
         <div className="home-foot">
           <button className="btn-text quiet" onClick={() => go("history")}>
             History
+          </button>
+          <button className="btn-text quiet" onClick={() => go("insights")}>
+            Insights
           </button>
           <button className="btn-text quiet" onClick={() => go("settings")}>
             Settings

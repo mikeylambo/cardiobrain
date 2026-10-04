@@ -169,7 +169,7 @@ export function Segmented<T extends string | number>({
   value: T;
   options: Array<{ value: T; label: string; activity?: string }>;
   onChange: (v: T) => void;
-  cols: 3 | 4;
+  cols: 2 | 3 | 4 | 5;
 }) {
   return (
     <div role="radiogroup" aria-label={label} className={`segmented cols-${cols}`}>

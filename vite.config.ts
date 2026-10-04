@@ -24,11 +24,18 @@ export default defineConfig({
         start_url: "/",
         scope: "/",
         display: "standalone",
-        orientation: "portrait",
+        orientation: "any",
         background_color: "#16181D",
         theme_color: "#16181D",
         lang: "en",
         categories: ["health", "fitness"],
+        // Long-press the home-screen icon (Android) to start straight into an activity.
+        shortcuts: [
+          { name: "Start a walk", short_name: "Walk", url: "/?start=walk", icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }] },
+          { name: "Start a bike session", short_name: "Bike", url: "/?start=bike", icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }] },
+          { name: "Start a run", short_name: "Run", url: "/?start=run", icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }] },
+          { name: "Today's daily challenge", short_name: "Daily", url: "/?start=daily", icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }] },
+        ],
         icons: [
           { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
           { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },

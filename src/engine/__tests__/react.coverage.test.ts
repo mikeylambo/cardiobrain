@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mulberry32 } from "../rng";
 import { generateReact, WITHHOLD, ZONES } from "../../modes/generate/react";
 
-const ctx = (i: number) => ({ activity: "run" as const, bias: "standard" as const, seed: i, trialIndex: i, modeTrialIndex: i });
+const ctx = (i: number) => ({ activity: "run" as const, bias: "standard" as const, seed: i, trialIndex: i, modeTrialIndex: i, recent: [] });
 
 describe("React", () => {
   it("2,000 seeds x levels 1-20: one target, a tile for it, decoys elsewhere", () => {

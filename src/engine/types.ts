@@ -1,5 +1,6 @@
-export type Activity = "walk" | "bike" | "stairs" | "run";
-export type ModeId = "numbers" | "switch" | "react" | "recall" | "rhyme";
+/** "still" is the seated baseline: the same challenges, no movement, so motion cost can be measured. */
+export type Activity = "walk" | "bike" | "stairs" | "run" | "still";
+export type ModeId = "numbers" | "switch" | "react" | "recall" | "rhyme" | "nback" | "estimate" | "rotate";
 export type ModeChoice = ModeId | "mix";
 export type SessionStatus = "countdown" | "running" | "paused" | "finished";
 export type DifficultyBias = "gentle" | "standard" | "hard";
@@ -8,6 +9,8 @@ export type DurationChoice = 10 | 20 | 30 | "open";
 export interface AnswerOption {
   id: string;
   label: string;
+  /** Extra words that count as this answer when spoken ("over", "higher", "high"). */
+  say?: string[];
 }
 
 export interface Challenge {
@@ -27,6 +30,10 @@ export interface Challenge {
   timeoutAnswer?: string;
   /** Switch: the rule changed on this trial. */
   switchTrial?: boolean;
+  /** What to read aloud for this challenge, when spoken prompts are on. */
+  speech?: string;
+  /** Voice answers make sense for this challenge (not for React's reflex taps or Recall's sequences). */
+  voice?: boolean;
   data: Record<string, unknown>;
 }
 
@@ -42,6 +49,8 @@ export interface TrialResult {
   score: number;
   streak: number;
   switchTrial?: boolean;
+  /** Heart rate when answered, if a strap was connected. */
+  hr?: number;
   timestamp: number;
 }
 
@@ -63,6 +72,17 @@ export interface SessionResult {
   startedAt: number;
   finishedAt: number;
   guided?: boolean;
+  /** Daily challenge: the date key (YYYY-MM-DD) everyone shares. */
+  daily?: string;
+  /** Rate of perceived exertion, 1-10 (Borg CR10), from the check-in on Results. */
+  rpe?: number;
+  /** Mood 1-5 before and after, when mood check-ins are on. */
+  moodBefore?: number;
+  moodAfter?: number;
+  /** Interval pattern used, e.g. "60/60". */
+  intervals?: string;
+  /** Mean heart rate across answered challenges, if a strap was connected. */
+  avgHr?: number;
   trials: TrialResult[];
 }
 
@@ -74,6 +94,8 @@ export interface ModeContext {
   trialIndex: number;
   /** How many trials of this mode came before this one in the session. */
   modeTrialIndex: number;
+  /** Stimuli this mode showed most recently in the current block, oldest first (N-back needs them). */
+  recent: string[];
 }
 
 export type Generator = (level: number, rng: () => number, ctx: ModeContext) => Challenge;

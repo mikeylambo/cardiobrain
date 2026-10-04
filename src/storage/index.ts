@@ -2,29 +2,75 @@ import { createStore, del, get, set } from "idb-keyval";
 import type { Activity, DifficultyBias, DurationChoice, ModeChoice, ModeId, SessionResult } from "../engine/types";
 import type { DifficultyState } from "../engine/difficulty";
 
+export type Distance = "hand" | "arm";
+export type IntervalChoice = "off" | "30/30" | "60/60" | "240/60";
+
 export interface UserPrefs {
   sound: boolean;
   haptics: boolean;
   reducedMotion: boolean;
   difficultyBias: DifficultyBias;
+  /** Read each challenge aloud. */
+  speak: boolean;
+  /** Eyes-free: also read the answers with their positions, and use big halves and quarters. */
+  eyesFree: boolean;
+  /** Answer by voice where the challenge allows it. */
+  voiceAnswers: boolean;
+  /** Arm's length scales the session up for phones mounted further away. */
+  distance: Distance;
+  /** Asphalt background with the activity color on the stimulus, for night sessions. */
+  darkSessions: boolean;
+  /** Ask how you feel before and after. */
+  moodCheckIn: boolean;
+  /** Sessions per week for the ring on Home. */
+  weeklyGoal: number;
+  /** For heart-rate zones. */
+  maxHr: number;
+  /** Native apps: write each session to Apple Health or Health Connect. */
+  logToHealth: boolean;
 }
 
 export interface SessionSetup {
   activity: Activity;
   mode: ModeChoice;
   duration: DurationChoice;
+  /** The modes Mix rotates through (at least two). */
+  mixModes: ModeId[];
+  intervals: IntervalChoice;
+  /** With intervals on: play during the work bouts, or during recovery. */
+  playDuring: "work" | "rest";
 }
 
 export interface Flags {
   onboarded: boolean;
   installOffered: boolean;
+  /** Modes that have shown their first-time coach line. */
+  seenModes: ModeId[];
+  pauseHintShown: boolean;
+  lastBackupAt: number | null;
 }
 
 export type PersistedProgress = Partial<Record<ModeId, DifficultyState>>;
 
-export const DEFAULT_PREFS: UserPrefs = { sound: true, haptics: true, reducedMotion: false, difficultyBias: "standard" };
-export const DEFAULT_SETUP: SessionSetup = { activity: "walk", mode: "mix", duration: 20 };
-export const DEFAULT_FLAGS: Flags = { onboarded: false, installOffered: false };
+export const ALL_MODES: ModeId[] = ["numbers", "switch", "react", "recall", "rhyme", "nback", "estimate", "rotate"];
+
+export const DEFAULT_PREFS: UserPrefs = {
+  sound: true,
+  haptics: true,
+  reducedMotion: false,
+  difficultyBias: "standard",
+  speak: false,
+  eyesFree: false,
+  voiceAnswers: false,
+  distance: "hand",
+  darkSessions: false,
+  moodCheckIn: false,
+  weeklyGoal: 3,
+  maxHr: 185,
+  logToHealth: false,
+};
+export const DEFAULT_SETUP: SessionSetup = { activity: "walk", mode: "mix", duration: 20, mixModes: ALL_MODES, intervals: "off", playDuring: "work" };
+export const DEFAULT_FLAGS: Flags = { onboarded: false, installOffered: false, seenModes: [], pauseHintShown: false, lastBackupAt: null };
 
 // IndexedDB can be unavailable (private windows, storage pressure). Every call degrades
 // to an in-memory copy and reports the failure once so the app can say so quietly.
@@ -112,6 +158,37 @@ export function clearLocal(): void {
   } catch {
     // Nothing stored.
   }
+}
+
+export interface ExportPayload {
+  app: "CardioBrain";
+  history: SessionResult[];
+  progress?: PersistedProgress;
+  prefs?: Partial<UserPrefs>;
+  setup?: Partial<SessionSetup>;
+}
+
+/** Validate an export file. Returns the payload, or a plain reason it can't be used. */
+export function parseImport(text: string): ExportPayload | string {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return "That file isn't a CardioBrain export.";
+  }
+  const d = data as Partial<ExportPayload>;
+  if (!d || d.app !== "CardioBrain" || !Array.isArray(d.history)) return "That file isn't a CardioBrain export.";
+  const ok = d.history.every((h) => h && typeof h.id === "string" && typeof h.accuracy === "number" && typeof h.startedAt === "number");
+  if (!ok) return "That export is damaged. Nothing was imported.";
+  return d as ExportPayload;
+}
+
+/** Merge imported sessions into existing history: no duplicates, newest first. */
+export function mergeHistory(current: SessionResult[], incoming: SessionResult[]): { history: SessionResult[]; added: number } {
+  const seen = new Set(current.map((h) => h.id));
+  const fresh = incoming.filter((h) => !seen.has(h.id));
+  const history = [...current, ...fresh].sort((a, b) => b.startedAt - a.startedAt);
+  return { history, added: fresh.length };
 }
 
 export function exportData(payload: object): void {

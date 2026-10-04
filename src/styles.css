@@ -22,6 +22,12 @@
   --asphalt: #16181d;
   --chalk: #f4f4f1;
   --muted: #5a5d66;
+  --lagoon-dark: #2fd3bb;
+  --ultraviolet-dark: #a592ff;
+  --vermilion-dark: #ff6a4d;
+  --tile-bg: var(--chalk);
+  /* Arm's length scales the session up. */
+  --session-scale: 1;
   --rule: #dcdcd6;
 
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -78,6 +84,38 @@
   --primary-bg: var(--asphalt);
   --primary-fg: var(--chalk);
   --tile-edge: transparent;
+}
+/* Seated baseline: a quiet chalk field. Tiles go white with an Asphalt edge so they still read as buttons. */
+[data-activity="still"] {
+  --field: var(--chalk);
+  --on-field: var(--asphalt);
+  --primary-bg: var(--asphalt);
+  --primary-fg: var(--chalk);
+  --tile-edge: var(--asphalt);
+  --tile-bg: #ffffff;
+}
+/* Dark sessions: Asphalt field; the activity color carries the stimulus, lightened where needed for AA. */
+[data-dark="true"] {
+  --field: var(--asphalt);
+  --tile-edge: transparent;
+  --tile-bg: var(--chalk);
+  --primary-bg: var(--chalk);
+  --primary-fg: var(--asphalt);
+}
+[data-dark="true"][data-activity="walk"] {
+  --on-field: var(--lagoon-dark);
+}
+[data-dark="true"][data-activity="bike"] {
+  --on-field: var(--signal);
+}
+[data-dark="true"][data-activity="stairs"] {
+  --on-field: var(--ultraviolet-dark);
+}
+[data-dark="true"][data-activity="run"] {
+  --on-field: var(--vermilion-dark);
+}
+[data-dark="true"][data-activity="still"] {
+  --on-field: var(--chalk);
 }
 
 *,
@@ -593,7 +631,7 @@ p {
 }
 .cue {
   font-weight: 650;
-  font-size: var(--fs-24);
+  font-size: calc(var(--fs-24) * var(--session-scale));
   line-height: 1.15;
 }
 .stimulus {
@@ -644,14 +682,14 @@ p {
   min-height: 132px;
 }
 .tile {
-  min-height: var(--tile-min);
+  min-height: calc(var(--tile-min) * var(--session-scale));
   border-radius: var(--radius);
-  background: var(--chalk);
+  background: var(--tile-bg);
   color: var(--asphalt);
   box-shadow: inset 0 0 0 2px var(--tile-edge);
   font-stretch: 70%;
   font-weight: 750;
-  font-size: var(--fs-40);
+  font-size: calc(var(--fs-40) * var(--session-scale));
   line-height: 1;
   padding: 8px;
   display: flex;
@@ -721,7 +759,7 @@ p {
 }
 .tray-slot.filled {
   opacity: 1;
-  background: var(--chalk);
+  background: var(--tile-bg);
   color: var(--asphalt);
   box-shadow: inset 0 0 0 2px var(--tile-edge);
 }
@@ -733,7 +771,7 @@ p {
   min-width: 64px;
   min-height: 56px;
   border-radius: var(--radius);
-  background: var(--chalk);
+  background: var(--tile-bg);
   color: var(--asphalt);
   box-shadow: inset 0 0 0 2px var(--tile-edge);
   font-weight: 700;
@@ -1217,4 +1255,415 @@ p {
   font-stretch: 75%;
   font-weight: 800;
   font-size: 28px;
+}
+
+/* ---------- v2.1 additions ---------- */
+.session[data-distance="arm"] {
+  --session-scale: 1.22;
+}
+.session[data-distance="arm"] .session-bar .clock {
+  font-size: var(--fs-24);
+}
+
+/* Coach line, first time each mode appears */
+.coach {
+  margin: 4px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--on-field);
+  color: var(--field);
+  font-size: var(--fs-17);
+  font-weight: 600;
+  line-height: 1.3;
+}
+.coach strong {
+  font-weight: 800;
+}
+.hint {
+  opacity: 0.9;
+  border-left: 3px solid currentColor;
+  padding-left: 10px;
+}
+.voice-note {
+  font-size: var(--fs-14);
+  font-weight: 600;
+  margin: 8px 0 0;
+}
+
+/* Interval rest card */
+.rest-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+.rest-clock {
+  font-size: var(--fs-160);
+  line-height: 0.85;
+}
+
+/* Estimation */
+.estimate-field {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+}
+.estimate-field svg {
+  width: min(100%, 44dvh);
+  height: auto;
+  aspect-ratio: 1;
+}
+.estimate-mask {
+  position: absolute;
+  font-size: var(--fs-160);
+}
+
+/* Mental rotation */
+.rotate-pair {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: center;
+}
+.rotate-pair svg {
+  width: 100%;
+  height: auto;
+  max-height: 34dvh;
+}
+.rotate-pair svg:first-child {
+  opacity: 0.92;
+}
+
+/* React: each tile shows its place as a mini map */
+.tile .minimap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  width: 30px;
+  height: 30px;
+  opacity: 0.4;
+}
+.tile .minimap i {
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+.tile .minimap i.on {
+  background: currentColor;
+}
+
+/* Recall: step dots */
+.recall-dots {
+  display: flex;
+  gap: 8px;
+}
+.recall-dots i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+.recall-dots i.on {
+  background: currentColor;
+}
+
+/* Landscape: phones on treadmill and bike mounts. Stimulus left, tiles right. */
+@media (orientation: landscape) and (max-height: 560px) {
+  .session {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto 1fr;
+    column-gap: 24px;
+  }
+  .session-bar,
+  .coach,
+  .voice-note {
+    grid-column: 1 / -1;
+  }
+  .session-body {
+    grid-column: 1 / -1;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 24px;
+    min-height: 0;
+  }
+  .session-body > .stage {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+  .session-body > .tiles,
+  .session-body > .tray {
+    grid-column: 2;
+    align-self: end;
+  }
+  .session-body > .tray {
+    align-self: start;
+    margin-top: 8px;
+  }
+  .session-body > .rest-card {
+    grid-column: 1 / -1;
+  }
+  .tiles .tile {
+    min-height: calc(min(var(--tile-min), 30dvh) * var(--session-scale));
+  }
+  .tiles.one-row .tile {
+    min-height: calc(min(132px, 60dvh) * var(--session-scale));
+  }
+  .countdown,
+  .transition-card {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 6dvh);
+  }
+  .countdown .num-big,
+  .rest-clock {
+    font-size: min(var(--fs-160), 42dvh);
+  }
+  .screen {
+    min-height: 100dvh;
+  }
+  .home-hero .display {
+    font-size: min(12rem, 34dvh);
+  }
+  .activity-blocks {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .activity-block {
+    flex: 1 1 40%;
+    min-height: 72px;
+  }
+}
+
+.segmented.cols-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+.segmented.cols-5 {
+  grid-template-columns: repeat(5, 1fr);
+}
+.segmented.cols-5 .segment {
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-14);
+  padding: 6px 2px;
+}
+.chips.wrap {
+  flex-wrap: wrap;
+  overflow: visible;
+  margin: 0;
+  padding: 0;
+}
+.chip[role="checkbox"][aria-checked="true"] {
+  background: var(--asphalt);
+  color: var(--chalk);
+}
+.sheet-note {
+  font-size: var(--fs-14);
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+/* Results: bests and check-ins */
+.best-line {
+  margin-top: 6px;
+  font-weight: 750;
+  font-size: var(--fs-17);
+}
+.checkin {
+  margin-top: 20px;
+}
+.checkin-label {
+  font-weight: 650;
+  font-size: var(--fs-17);
+  margin-bottom: 8px;
+}
+.rpe {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 4px;
+}
+.mood {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+.rpe-btn {
+  min-height: 48px;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 2px currentColor;
+  font-weight: 750;
+  font-size: var(--fs-17);
+  padding: 0 2px;
+}
+.mood .rpe-btn {
+  font-size: var(--fs-14);
+}
+.rpe-btn[aria-pressed="true"] {
+  background: var(--on-field);
+  color: var(--field);
+}
+.rpe-anchors {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fs-14);
+  margin-top: 4px;
+}
+
+/* Home: weekly goal ring and the daily challenge */
+.goal {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+}
+.goal svg {
+  width: 64px;
+  height: 64px;
+  flex: none;
+}
+.goal-text {
+  display: flex;
+  flex-direction: column;
+}
+.goal-text strong {
+  font-stretch: 75%;
+  font-weight: 800;
+  font-size: var(--fs-24);
+  line-height: 1.1;
+}
+.goal-text span {
+  font-size: var(--fs-14);
+  font-weight: 600;
+}
+.daily {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 64px;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 2px currentColor;
+  text-align: left;
+}
+.daily[aria-disabled="true"] {
+  box-shadow: none;
+  padding-left: 0;
+  cursor: default;
+}
+.daily-title {
+  font-stretch: 75%;
+  font-weight: 800;
+  font-size: var(--fs-24);
+  line-height: 1.1;
+}
+.daily-sub {
+  font-size: var(--fs-14);
+  font-weight: 600;
+}
+
+/* Insights */
+.insights {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+.insight {
+  padding: 14px 0;
+  border-top: 1px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.section-title {
+  font-weight: 750;
+  margin: 32px 0 8px;
+}
+.science {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: var(--fs-17);
+}
+.science .source {
+  color: var(--muted);
+  font-size: var(--fs-14);
+}
+.mood-sheet {
+  margin-top: 8px;
+}
+.mood-sheet .segment {
+  font-size: var(--fs-14);
+}
+
+.settings-group {
+  font-size: var(--fs-14);
+  font-weight: 750;
+  color: var(--muted);
+  margin: 28px 0 4px;
+}
+.setting-stack {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 12px 0;
+  gap: 10px;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-stretch: 75%;
+  font-weight: 800;
+  font-size: var(--fs-24);
+}
+.stepper .icon-btn {
+  font-size: var(--fs-24);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 2px var(--rule);
+}
+.hr {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+  font-size: var(--fs-17);
+}
+
+.levels {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.levels li {
+  display: grid;
+  grid-template-columns: 76px 1fr 28px;
+  align-items: center;
+  gap: 10px;
+}
+.level-bar {
+  height: 10px;
+  border-radius: 5px;
+  background: #e2e2dc;
+  overflow: hidden;
+}
+.level-bar span {
+  display: block;
+  height: 100%;
+  background: var(--asphalt);
+  border-radius: 5px;
+}
+.level-num {
+  text-align: right;
+  font-weight: 700;
 }

@@ -3,7 +3,11 @@ import type { Activity, Challenge, ModeChoice, ModeId, SessionResult, TrialResul
 import { hashSeed, mulberry32 } from "../engine/rng";
 import { challengeScore, sessionMetrics } from "../engine/scoring";
 import { createDifficultyState, updateDifficulty, type DifficultyState } from "../engine/difficulty";
-import { GUIDED_BLOCK_MS, GUIDED_MODES, MIX_BLOCK_MS, MIX_MODES, mixModeAt } from "../engine/mix";
+import { GUIDED_BLOCK_MS, GUIDED_MODES, MIX_BLOCK_MS, mixModeAt } from "../engine/mix";
+import { DAILY_BLOCK_MS, DAILY_SECONDS, dailyKey, dailyLevel, dailyModeAt, dailyModes, dailySeed } from "../engine/daily";
+import { intervalAt } from "../engine/intervals";
+import { ZONE_TIME_FACTOR, zoneFor, type Zone } from "../platform/heartRate";
+import { logSessionToHealth } from "../platform/health";
 import { AUTO_PAUSE_MS, DURATION_SECONDS, GUIDED_SECONDS, RESUME_WINDOW_MS, makeSessionId } from "../engine/session";
 import { GENERATORS } from "../modes/generate";
 import { isRhymeReady, loadRhymeData } from "../modes/generate/rhyme";
@@ -11,6 +15,7 @@ import {
   clearActiveSession,
   clearHistory,
   clearLocal,
+  ALL_MODES,
   DEFAULT_FLAGS,
   DEFAULT_PREFS,
   DEFAULT_SETUP,
@@ -26,13 +31,16 @@ import {
   savePrefs,
   saveProgress,
   saveSetup,
+  mergeHistory,
+  parseImport,
   type Flags,
+  type IntervalChoice,
   type PersistedProgress,
   type SessionSetup,
   type UserPrefs,
 } from "../storage";
 
-export type Screen = "boot" | "welcome" | "home" | "session" | "results" | "history" | "settings";
+export type Screen = "boot" | "welcome" | "home" | "session" | "results" | "history" | "settings" | "insights";
 export type SessionPhase = "countdown" | "running" | "paused";
 
 /** Everything about a session that survives a reload. Timing is stored as elapsed running time, never as wall-clock. */
@@ -56,6 +64,15 @@ export interface SessionSnapshot {
   bestStreak: number;
   levels: PersistedProgress;
   mixBlock: number;
+  /** The modes this session's Mix rotates through, fixed at start. */
+  mixModes: ModeId[];
+  /** What each mode showed most recently in its current block (N-back reads it). */
+  memory: Partial<Record<ModeId, string[]>>;
+  intervals: IntervalChoice;
+  playDuring: "work" | "rest";
+  /** Daily challenge date key, or null. */
+  daily: string | null;
+  moodBefore?: number;
   savedAt: number;
 }
 
@@ -71,6 +88,8 @@ export interface ActiveSession extends SessionSnapshot {
   presentation: number;
   /** Mix: the mode the transition card is announcing. */
   transition: ModeId | null;
+  /** Intervals: the quiet part of the cycle, no challenge on screen. */
+  resting: boolean;
   hiddenAt: number | null;
 }
 
@@ -91,6 +110,11 @@ interface State {
   recoverable: SessionSnapshot | null;
   lastResult: SessionResult | null;
   error: string | null;
+  /** A start waiting on the mood check-in. */
+  pendingStart: { daily?: boolean } | null;
+  /** Live heart rate from a connected strap. */
+  heart: { bpm: number; zone: Zone; at: number; device: string } | null;
+  setHeart: (bpm: number | null, device?: string) => void;
 
   boot: () => Promise<void>;
   go: (screen: Screen) => void;
@@ -98,7 +122,10 @@ interface State {
   updateSetup: (patch: Partial<SessionSetup>) => void;
   updatePrefs: (patch: Partial<UserPrefs>) => void;
   markInstallOffered: () => void;
-  startSession: (options?: { guided?: boolean }) => Promise<void>;
+  startSession: (options?: { guided?: boolean; daily?: boolean; moodBefore?: number }) => Promise<void>;
+  /** Start, asking how you feel first when mood check-ins are on. */
+  requestStart: (options?: { daily?: boolean }) => void;
+  cancelStart: () => void;
   countdownDone: () => void;
   markPresented: () => void;
   answer: (answerId: string) => AnswerOutcome | null;
@@ -114,6 +141,11 @@ interface State {
   discardRecovered: () => void;
   deleteAllData: () => Promise<void>;
   clearError: () => void;
+  updateResult: (id: string, patch: Partial<Pick<SessionResult, "rpe" | "moodAfter">>) => void;
+  importData: (text: string) => Promise<string>;
+  markModeSeen: (mode: ModeId) => void;
+  markPauseHintShown: () => void;
+  markBackedUp: () => void;
 }
 
 const now = () => performance.now();
@@ -123,27 +155,56 @@ export function elapsedMs(active: Pick<ActiveSession, "elapsedMs" | "runningSinc
   return active.elapsedMs + (active.runningSince !== null ? now() - active.runningSince : 0);
 }
 
-const needsRhyme = (mode: ModeChoice, guided: boolean) => !guided && (mode === "rhyme" || mode === "mix");
+type Plan = Pick<SessionSnapshot, "requestedMode" | "guided" | "seed" | "mixModes" | "daily">;
 
-function modeFor(s: Pick<SessionSnapshot, "requestedMode" | "guided" | "seed">, block: number): ModeId {
+/** Every mode this session can show. */
+function modesOf(s: Plan): ModeId[] {
+  if (s.guided) return GUIDED_MODES;
+  if (s.daily) return dailyModes(s.daily);
+  if (s.requestedMode === "mix") return s.mixModes;
+  return [s.requestedMode];
+}
+
+const needsRhyme = (s: Plan) => modesOf(s).includes("rhyme");
+const isMixing = (s: Plan) => s.guided || Boolean(s.daily) || s.requestedMode === "mix";
+
+function modeFor(s: Plan, block: number): ModeId {
   if (s.guided) return mixModeAt(s.seed, block, GUIDED_MODES);
-  if (s.requestedMode === "mix") return mixModeAt(s.seed, block, MIX_MODES);
+  if (s.daily) return dailyModeAt(s.daily, block);
+  if (s.requestedMode === "mix") return mixModeAt(s.seed, block, s.mixModes);
   return s.requestedMode;
 }
 
-function blockMs(s: Pick<SessionSnapshot, "guided">): number {
-  return s.guided ? GUIDED_BLOCK_MS : MIX_BLOCK_MS;
+function blockMs(s: Plan): number {
+  return s.guided ? GUIDED_BLOCK_MS : s.daily ? DAILY_BLOCK_MS : MIX_BLOCK_MS;
+}
+
+/** Live heart-rate zone, if a strap has reported in the last 10 seconds. */
+function liveZone(): Zone | null {
+  const h = useStore.getState().heart;
+  return h && Date.now() - h.at < 10_000 ? h.zone : null;
 }
 
 function makeChallenge(s: ActiveSession, mode: ModeId, bias: UserPrefs["difficultyBias"]): Challenge {
-  const state = s.levels[mode] ?? createDifficultyState();
-  const rng = mulberry32(hashSeed([s.seed, mode, s.trialIndex, state.level]));
-  return GENERATORS[mode](state.level, rng, {
-    activity: s.activity,
-    bias,
+  const c = baseChallenge(s, mode, bias);
+  // Working hard? Give more time to answer. The daily stays identical for everyone.
+  const zone = s.daily ? null : liveZone();
+  if (!zone || ZONE_TIME_FACTOR[zone] === 1) return c;
+  const f = ZONE_TIME_FACTOR[zone];
+  return { ...c, targetRt: c.targetRt * f, timeoutMs: c.timeoutMs ? Math.round(c.timeoutMs * f) : undefined };
+}
+
+function baseChallenge(s: ActiveSession, mode: ModeId, bias: UserPrefs["difficultyBias"]): Challenge {
+  // The daily challenge ignores personal levels and timing so everyone plays the same thing.
+  const level = s.daily ? dailyLevel(s.mixBlock) : (s.levels[mode] ?? createDifficultyState()).level;
+  const rng = mulberry32(hashSeed([s.seed, mode, s.trialIndex, level]));
+  return GENERATORS[mode](level, rng, {
+    activity: s.daily ? "walk" : s.activity,
+    bias: s.daily ? "standard" : bias,
     seed: s.seed,
     trialIndex: s.trialIndex,
     modeTrialIndex: s.modeCounts[mode] ?? 0,
+    recent: s.memory[mode] ?? [],
   });
 }
 
@@ -167,6 +228,12 @@ function snapshotOf(a: ActiveSession): SessionSnapshot {
     bestStreak: a.bestStreak,
     levels: a.levels,
     mixBlock: a.mixBlock,
+    mixModes: a.mixModes,
+    memory: a.memory,
+    intervals: a.intervals,
+    playDuring: a.playDuring,
+    daily: a.daily,
+    moodBefore: a.moodBefore,
     savedAt: Date.now(),
   };
 }
@@ -216,10 +283,19 @@ export const useStore = create<State>((set, get) => {
       startedAt: stopped.startedAt,
       finishedAt: Date.now(),
       guided: stopped.guided || undefined,
+      daily: stopped.daily ?? undefined,
+      moodBefore: stopped.moodBefore,
+      intervals: stopped.intervals === "off" ? undefined : `${stopped.intervals} ${stopped.playDuring}`,
+      avgHr: (() => {
+        const hrs = stopped.trials.map((t) => t.hr).filter((x): x is number => typeof x === "number");
+        return hrs.length ? Math.round(hrs.reduce((a, b) => a + b, 0) / hrs.length) : undefined;
+      })(),
       trials: stopped.trials,
     };
+    if (get().prefs.logToHealth) void logSessionToHealth(result);
     const history = [result, ...get().history];
-    const progress = { ...get().progress, ...stopped.levels };
+    // The daily challenge plays at fixed levels, so it teaches the controller nothing about you.
+    const progress = stopped.daily ? get().progress : { ...get().progress, ...stopped.levels };
     saveProgress(progress);
     void saveHistory(history);
     void clearActiveSession();
@@ -237,6 +313,17 @@ export const useStore = create<State>((set, get) => {
     recoverable: null,
     lastResult: null,
     error: null,
+    pendingStart: null,
+    heart: null,
+
+    setHeart: (bpm, device) => {
+      if (bpm === null) {
+        set({ heart: null });
+        return;
+      }
+      const prev = get().heart;
+      set({ heart: { bpm, zone: zoneFor(bpm, get().prefs.maxHr), at: Date.now(), device: device ?? prev?.device ?? "Heart-rate strap" } });
+    },
 
     boot: async () => {
       const prefs = loadPrefs();
@@ -286,15 +373,25 @@ export const useStore = create<State>((set, get) => {
 
     startSession: async (options = {}) => {
       const guided = Boolean(options.guided);
+      const daily = options.daily ? dailyKey() : null;
       const { setup, progress } = get();
-      const seed = hashSeed([Date.now(), Math.random()]);
-      const durationSeconds = durationOverride() ?? (guided ? GUIDED_SECONDS : setup.duration === "open" ? null : DURATION_SECONDS[setup.duration]);
-      const base = { requestedMode: guided ? ("mix" as const) : setup.mode, guided, seed };
+      const seed = daily ? dailySeed(daily) : hashSeed([Date.now(), Math.random()]);
+      const durationSeconds =
+        durationOverride() ?? (guided ? GUIDED_SECONDS : daily ? DAILY_SECONDS : setup.duration === "open" ? null : DURATION_SECONDS[setup.duration]);
+      const mixModes = setup.mixModes.filter((m) => ALL_MODES.includes(m));
+      const base: Plan = {
+        requestedMode: guided || daily ? ("mix" as const) : setup.mode,
+        guided,
+        seed,
+        daily,
+        mixModes: mixModes.length >= 2 ? mixModes : ALL_MODES,
+      };
       const first = modeFor(base, 0);
       void clearActiveSession();
       set({
         recoverable: null,
         error: null,
+        pendingStart: null,
         screen: "session",
         active: {
           id: makeSessionId(),
@@ -313,6 +410,12 @@ export const useStore = create<State>((set, get) => {
           // Guided first rounds start everyone at the calibration level.
           levels: guided ? {} : { ...progress },
           mixBlock: 0,
+          memory: {},
+          // Intervals belong to a training session, not to the first round or the daily.
+          intervals: guided || daily ? "off" : setup.intervals,
+          playDuring: setup.playDuring,
+          moodBefore: options.moodBefore,
+          resting: false,
           savedAt: Date.now(),
           phase: "countdown",
           countdownKind: "start",
@@ -324,7 +427,7 @@ export const useStore = create<State>((set, get) => {
           hiddenAt: null,
         },
       });
-      if (needsRhyme(base.requestedMode, guided) && !isRhymeReady()) {
+      if (needsRhyme(base) && !isRhymeReady()) {
         try {
           await loadRhymeData();
         } catch {
@@ -333,12 +436,21 @@ export const useStore = create<State>((set, get) => {
       }
     },
 
+    requestStart: (options = {}) => {
+      if (get().prefs.moodCheckIn) set({ pendingStart: options });
+      else void get().startSession(options);
+    },
+
+    cancelStart: () => set({ pendingStart: null }),
+
     countdownDone: () => {
       const a = get().active;
       if (!a || a.phase !== "countdown") return;
-      if (needsRhyme(a.requestedMode, a.guided) && !isRhymeReady()) return; // still loading; the countdown waits
+      if (needsRhyme(a) && !isRhymeReady()) return; // still loading; the countdown waits
       let next: ActiveSession = { ...a, phase: "running", runningSince: now(), presentedAt: null, answered: false };
-      if (!next.current) {
+      if (!intervalAt(elapsedMs(next), next.intervals, next.playDuring).playing) {
+        next = { ...next, current: null, resting: true };
+      } else if (!next.current) {
         next = { ...next, current: makeChallenge(next, next.currentMode, get().prefs.difficultyBias) };
       } else {
         next = { ...next, presentation: next.presentation + 1 };
@@ -355,7 +467,7 @@ export const useStore = create<State>((set, get) => {
 
     answer: (answerId) => {
       const a = get().active;
-      if (!a || a.phase !== "running" || !a.current || a.answered || a.presentedAt === null || a.transition) return null;
+      if (!a || a.phase !== "running" || !a.current || a.answered || a.presentedAt === null || a.transition || a.resting) return null;
       const challenge = a.current;
       const { difficultyBias } = get().prefs;
       const withheld = answerId === challenge.timeoutAnswer && answerId === challenge.correctAnswer;
@@ -375,6 +487,7 @@ export const useStore = create<State>((set, get) => {
         score: challengeScore(correct, challenge.level, responseMs, challenge.targetRt, streak, difficultyBias),
         streak,
         switchTrial: challenge.switchTrial,
+        hr: liveZone() ? get().heart!.bpm : undefined,
         timestamp: Date.now(),
       };
       const prior: DifficultyState = a.levels[challenge.mode] ?? createDifficultyState();
@@ -385,9 +498,12 @@ export const useStore = create<State>((set, get) => {
         challenge.mode,
         difficultyBias,
       );
+      const memo = challenge.data.memo;
+      const memory = typeof memo === "string" ? { ...a.memory, [challenge.mode]: [...(a.memory[challenge.mode] ?? []), memo].slice(-4) } : a.memory;
       set({
         active: {
           ...a,
+          memory,
           answered: true,
           trials: [...a.trials, trial],
           streak,
@@ -408,11 +524,17 @@ export const useStore = create<State>((set, get) => {
         finish();
         return;
       }
-      const mixing = a.guided || a.requestedMode === "mix";
+      if (!intervalAt(elapsed, a.intervals, a.playDuring).playing) {
+        set({ active: { ...a, current: null, resting: true, presentedAt: null } });
+        return;
+      }
+      const mixing = isMixing(a);
       const block = mixing ? Math.floor(elapsed / blockMs(a)) : 0;
       if (mixing && block !== a.mixBlock) {
         const mode = modeFor(a, block);
-        set({ active: { ...a, mixBlock: block, currentMode: mode, current: null, transition: mode, presentedAt: null } });
+        // A new block starts its own stream: N-back must not compare against a letter from minutes ago.
+        const memory = { ...a.memory, [mode]: [] };
+        set({ active: { ...a, mixBlock: block, currentMode: mode, current: null, transition: mode, presentedAt: null, memory } });
         return;
       }
       const current = makeChallenge(a, a.currentMode, get().prefs.difficultyBias);
@@ -445,7 +567,8 @@ export const useStore = create<State>((set, get) => {
           presentedAt: null,
           answered: false,
           transition: null,
-          current: a.answered || a.transition ? null : a.current,
+          resting: false,
+          current: a.answered || a.transition || a.resting ? null : a.current,
         },
       });
     },
@@ -489,8 +612,21 @@ export const useStore = create<State>((set, get) => {
     tick: () => {
       const a = get().active;
       if (!a || a.phase !== "running") return;
-      if (a.durationSeconds !== null && elapsedMs(a) >= a.durationSeconds * 1000) finish();
-      else if (Date.now() - a.savedAt > 5000) {
+      const elapsed = elapsedMs(a);
+      if (a.durationSeconds !== null && elapsed >= a.durationSeconds * 1000) {
+        finish();
+        return;
+      }
+      if (a.resting && intervalAt(elapsed, a.intervals, a.playDuring).playing) {
+        // Back on: pick up at the right Mix block, with a fresh challenge.
+        const mixing = isMixing(a);
+        const block = mixing ? Math.floor(elapsed / blockMs(a)) : a.mixBlock;
+        const mode = mixing ? modeFor(a, block) : a.currentMode;
+        const next: ActiveSession = { ...a, resting: false, mixBlock: block, currentMode: mode, answered: false, presentedAt: null };
+        set({ active: { ...next, current: makeChallenge(next, mode, get().prefs.difficultyBias) } });
+        return;
+      }
+      if (Date.now() - a.savedAt > 5000) {
         const snap = snapshotOf(a);
         set({ active: { ...a, savedAt: snap.savedAt } });
         void saveActiveSession(snap);
@@ -502,7 +638,10 @@ export const useStore = create<State>((set, get) => {
     resumeRecovered: async () => {
       const snap = get().recoverable;
       if (!snap) return;
-      if (needsRhyme(snap.requestedMode, snap.guided) && !isRhymeReady()) {
+      // Snapshots saved by an older version lack the newer fields.
+      const defaults = { mixModes: ALL_MODES, memory: {}, intervals: "off" as const, playDuring: "work" as const, daily: null };
+      const restored = { ...defaults, ...(snap as Partial<SessionSnapshot>) } as SessionSnapshot;
+      if (needsRhyme(restored) && !isRhymeReady()) {
         try {
           await loadRhymeData();
         } catch {
@@ -514,8 +653,9 @@ export const useStore = create<State>((set, get) => {
         recoverable: null,
         screen: "session",
         active: {
-          ...snap,
+          ...restored,
           current: snap.answered ? null : snap.current,
+          resting: false,
           phase: "paused",
           countdownKind: "resume",
           runningSince: null,
@@ -550,6 +690,44 @@ export const useStore = create<State>((set, get) => {
     },
 
     clearError: () => set({ error: null }),
+
+    updateResult: (id, patch) => {
+      const history = get().history.map((h) => (h.id === id ? { ...h, ...patch } : h));
+      const last = get().lastResult;
+      void saveHistory(history);
+      set({ history, lastResult: last && last.id === id ? { ...last, ...patch } : last });
+    },
+
+    importData: async (text) => {
+      const parsed = parseImport(text);
+      if (typeof parsed === "string") return parsed;
+      const { history, added } = mergeHistory(get().history, parsed.history);
+      await saveHistory(history);
+      const progress = { ...(parsed.progress ?? {}), ...get().progress };
+      saveProgress(progress);
+      set({ history, progress, lastResult: get().lastResult ?? history[0] ?? null });
+      return added ? `Imported ${added} ${added === 1 ? "session" : "sessions"}.` : "Those sessions are already here. Nothing new to import.";
+    },
+
+    markModeSeen: (mode) => {
+      const f = get().flags;
+      if (f.seenModes.includes(mode)) return;
+      const flags = { ...f, seenModes: [...f.seenModes, mode] };
+      saveFlags(flags);
+      set({ flags });
+    },
+
+    markPauseHintShown: () => {
+      const flags = { ...get().flags, pauseHintShown: true };
+      saveFlags(flags);
+      set({ flags });
+    },
+
+    markBackedUp: () => {
+      const flags = { ...get().flags, lastBackupAt: Date.now() };
+      saveFlags(flags);
+      set({ flags });
+    },
   };
 });
 

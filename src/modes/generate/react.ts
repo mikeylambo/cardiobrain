@@ -39,6 +39,7 @@ export const generateReact: Generator = (level, rng, ctx): Challenge => {
     correctAnswer: noGo ? WITHHOLD : zone,
     timeoutMs: window,
     timeoutAnswer: WITHHOLD,
+    voice: false,
     targetRt: targetResponseMs("react", level, ctx.activity, ctx.bias),
     data: { zone, noGo, decoy, delayMs },
   };

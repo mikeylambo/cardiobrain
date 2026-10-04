@@ -2,32 +2,48 @@ import React from "react";
 import { sfx } from "../audio/synth";
 import { useStore } from "../state/store";
 import { isNative, shareNative } from "../platform/native";
-import { DeltaGlyph } from "./components";
+import { dailyNumber } from "../engine/daily";
+import { motionCost, motionCostText, personalBests } from "../engine/insights";
 import { MODE_INFO } from "../modes/registry";
+import { DeltaGlyph, Sheet } from "./components";
 import { ACTIVITY_LABEL, accuracyDeltaText, deltas, headline, minutesLabel, pct, previousMatch, rtDeltaText, secs, switchCostText } from "./copy";
-import { renderShareCard } from "./shareCard";
+import type { CardFormat } from "./shareCard";
 import { SetupSheet } from "./SetupScreen";
 
 const COUNT_MS = 900;
+const RPE_ANCHORS: Record<number, string> = { 1: "Very easy", 3: "Moderate", 5: "Hard", 7: "Very hard", 10: "Max" };
+export const MOODS = ["Low", "Flat", "Okay", "Good", "Great"];
 
 /** Results: a poster on the activity field, with the one orchestrated count-up. */
 export function ResultsScreen() {
   const result = useStore((s) => s.lastResult);
   const history = useStore((s) => s.history);
   const prefs = useStore((s) => s.prefs);
-  const startSession = useStore((s) => s.startSession);
+  const requestStart = useStore((s) => s.requestStart);
+  const updateResult = useStore((s) => s.updateResult);
   const go = useStore((s) => s.go);
   const target = result ? pct(result.accuracy) : 0;
   const instant = prefs.reducedMotion || (typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches);
   const [shown, setShown] = React.useState(instant ? target : 0);
   const [sheet, setSheet] = React.useState(false);
+  const [shareSheet, setShareSheet] = React.useState(false);
   const [shareState, setShareState] = React.useState<"idle" | "busy" | "saved" | "failed">("idle");
   const raf = React.useRef(0);
   const skipped = React.useRef(instant);
 
-  const prev = React.useMemo(() => (result ? previousMatch(history, result) : null), [history, result]);
+  const prev = React.useMemo(() => (result && !result.daily ? previousMatch(history, result) : null), [history, result]);
   const d = React.useMemo(() => (result ? deltas(result, prev) : { accuracyPoints: null, rtSeconds: null }), [result, prev]);
-  const title = result ? headline(result, prev) : "";
+  const bests = React.useMemo(() => (result ? personalBests(history, result) : null), [history, result]);
+  const cost = React.useMemo(
+    () => (result && result.activity !== "still" && !result.daily && !result.guided ? motionCost(history, result.requestedMode, [result]) : null),
+    [history, result],
+  );
+  const title = result ? (result.daily ? `Daily #${dailyNumber(result.daily)} done.` : headline(result, prev)) : "";
+  const kicker = result
+    ? result.daily
+      ? `Daily challenge, ${ACTIVITY_LABEL[result.activity].toLowerCase()}`
+      : `${ACTIVITY_LABEL[result.activity]}, ${result.guided ? "first round" : MODE_INFO[result.requestedMode].label}`
+    : "";
 
   React.useEffect(() => {
     sfx.complete();
@@ -60,17 +76,21 @@ export function ResultsScreen() {
     setShown(target);
   };
 
-  const share = async () => {
+  const share = async (format: CardFormat) => {
     if (!result) return;
+    setShareSheet(false);
     setShareState("busy");
     try {
-      const blob = await renderShareCard(result, title, d);
-      const text = `${pct(result.accuracy)}% on CardioBrain. ${title}`;
+      const { renderShareCard } = await import("./shareCard");
+      const blob = await renderShareCard(result, title, d, format, kicker);
+      const text = result.daily
+        ? `CardioBrain Daily #${dailyNumber(result.daily)}: ${pct(result.accuracy)}%, ${secs(result.avgRt)} average. Can you beat it?`
+        : `${pct(result.accuracy)}% on CardioBrain. ${title}`;
       if (isNative && (await shareNative(blob, text))) {
         setShareState("idle");
         return;
       }
-      const file = new File([blob], "cardiobrain.png", { type: "image/png" });
+      const file = new File([blob], `cardiobrain-${format}.png`, { type: "image/png" });
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], text });
         setShareState("idle");
@@ -78,7 +98,7 @@ export function ResultsScreen() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = "cardiobrain.png";
+        a.download = `cardiobrain-${format}.png`;
         a.click();
         window.setTimeout(() => URL.revokeObjectURL(url), 2000);
         setShareState("saved");
@@ -99,15 +119,16 @@ export function ResultsScreen() {
     );
   }
 
-  const cost = result.requestedMode === "switch" || result.requestedMode === "mix" ? switchCostText(result.switchCost) : null;
+  const switchCost = result.requestedMode === "switch" || result.requestedMode === "mix" ? switchCostText(result.switchCost) : null;
   const accDir = d.accuracyPoints === null ? null : d.accuracyPoints > 0 ? "up" : d.accuracyPoints < 0 ? "down" : "flat";
   const rtDir = d.rtSeconds === null ? null : d.rtSeconds < 0 ? "up" : d.rtSeconds > 0 ? "down" : "flat";
+  const bestList = bests ? [bests.accuracy && "accuracy", bests.speed && "speed", bests.streak && "streak"].filter(Boolean) : [];
+  const askEffort = !result.guided && result.activity !== "still";
+  const askMood = prefs.moodCheckIn && !result.guided;
 
   return (
     <main className="screen field results" data-activity={result.activity} onPointerDown={skip}>
-      <p className="results-kicker">
-        {ACTIVITY_LABEL[result.activity]}, {result.guided ? "first round" : MODE_INFO[result.requestedMode].label}
-      </p>
+      <p className="results-kicker">{kicker}</p>
       <h1 className="display results-headline">{title}</h1>
       <div className="results-score" aria-hidden="true">
         <span className="display num">{shown}</span>
@@ -117,11 +138,13 @@ export function ResultsScreen() {
         {accDir && <DeltaGlyph direction={accDir} />}
         {d.accuracyPoints === null ? "Accuracy" : `Accuracy. ${accuracyDeltaText(d.accuracyPoints)}.`}
       </p>
+      {bestList.length > 0 && <p className="best-line">New personal best: {bestList.join(", ")}.</p>}
       <p className="sr-only" role="status" aria-live="polite">
-        {title} {pct(result.accuracy)} percent accuracy. {accuracyDeltaText(d.accuracyPoints)}.
+        {title} {pct(result.accuracy)} percent accuracy. {d.accuracyPoints === null ? "" : `${accuracyDeltaText(d.accuracyPoints)}.`}
+        {bestList.length ? ` New personal best: ${bestList.join(", ")}.` : ""}
       </p>
 
-      <div className="stats grow">
+      <div className="stats">
         <div className="stat">
           <span className="stat-label">Duration</span>
           <span className="stat-value num">{minutesLabel(result.durationSeconds)}</span>
@@ -141,39 +164,111 @@ export function ResultsScreen() {
             </span>
           )}
         </div>
-        {cost && (
+        {switchCost && (
           <div className="stat">
             <span className="stat-label">Switch cost</span>
             <span className="stat-delta" style={{ gridColumn: "1 / -1" }}>
-              {cost}
+              {switchCost}
+            </span>
+          </div>
+        )}
+        {!result.daily && !result.guided && (
+          <div className="stat">
+            <span className="stat-label">Motion cost</span>
+            <span className="stat-delta" style={{ gridColumn: "1 / -1" }}>
+              {result.activity === "still"
+                ? `Seated baseline saved for ${MODE_INFO[result.requestedMode].label}. Moving sessions will compare against it.`
+                : cost
+                  ? motionCostText(cost)
+                  : `Play ${MODE_INFO[result.requestedMode].label} once seated to see what moving costs you.`}
             </span>
           </div>
         )}
       </div>
 
-      <div className="stack gap-8" style={{ marginTop: 16 }}>
+      {askEffort && (
+        <div className="checkin" role="group" aria-labelledby="rpe-label">
+          <p id="rpe-label" className="checkin-label">
+            How hard was the workout?
+          </p>
+          <div className="rpe">
+            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+              <button
+                key={n}
+                className="rpe-btn num"
+                aria-pressed={result.rpe === n}
+                aria-label={`${n}${RPE_ANCHORS[n] ? `, ${RPE_ANCHORS[n]}` : ""}`}
+                onClick={() => updateResult(result.id, { rpe: n })}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          <div className="rpe-anchors" aria-hidden="true">
+            <span>Very easy</span>
+            <span>Hard</span>
+            <span>Max</span>
+          </div>
+        </div>
+      )}
+
+      {askMood && (
+        <div className="checkin" role="group" aria-labelledby="mood-after-label">
+          <p id="mood-after-label" className="checkin-label">
+            How do you feel now?
+          </p>
+          <div className="mood">
+            {MOODS.map((m, i) => (
+              <button key={m} className="rpe-btn" aria-pressed={result.moodAfter === i + 1} onClick={() => updateResult(result.id, { moodAfter: i + 1 })}>
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="grow" />
+      <div className="stack gap-8" style={{ marginTop: 20 }}>
         <button
           className="btn-primary"
           onClick={() => {
-            if (result.guided) go("home");
-            else void startSession();
+            if (result.guided || result.daily) go("home");
+            else requestStart();
           }}
         >
-          {result.guided ? "Continue" : "Go again"}
+          {result.guided || result.daily ? "Continue" : "Go again"}
         </button>
         <div className="btn-row spread">
           <button className="btn-text" onClick={() => setSheet(true)}>
             Change
           </button>
-          <button className="btn-text" onClick={() => void share()} disabled={shareState === "busy"}>
-            {shareState === "saved" ? "Saved image" : shareState === "failed" ? "Share failed, try again" : "Share"}
+          <button className="btn-text" onClick={() => setShareSheet(true)} disabled={shareState === "busy"}>
+            Share
           </button>
           <button className="btn-text" onClick={() => go("home")}>
             Home
           </button>
         </div>
       </div>
+      {shareState !== "idle" && shareState !== "busy" && (
+        <p className="t-14" role="status" style={{ marginTop: 6 }}>
+          {shareState === "saved" ? "Image saved to your downloads." : "Couldn't make the image. Try again."}
+        </p>
+      )}
       {sheet && <SetupSheet onClose={() => setSheet(false)} />}
+      {shareSheet && (
+        <Sheet title="Share" onClose={() => setShareSheet(false)}>
+          <div className="stack gap-8">
+            <button className="btn-primary" onClick={() => void share("poster")}>
+              Poster
+            </button>
+            <button className="btn-primary" onClick={() => void share("story")}>
+              Story
+            </button>
+            <p className="sheet-note">Poster fits feeds and messages. Story is tall, for Instagram and WhatsApp stories.</p>
+          </div>
+        </Sheet>
+      )}
     </main>
   );
 }

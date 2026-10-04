@@ -3,11 +3,19 @@ import { MODE_INFO } from "../modes/registry";
 import { ACTIVITY_COLOR, ACTIVITY_LABEL, ACTIVITY_ON, accuracyDeltaText, minutesLabel, pct, rtDeltaText, secs, type Deltas } from "./copy";
 
 const W = 1080;
-const H = 1350;
 const PAD = 84;
 
-/** Same poster as the Results screen: field color, giant accuracy, three plain stats, the wordmark small at the bottom. */
-export async function renderShareCard(result: SessionResult, title: string, d: Deltas): Promise<Blob> {
+export type CardFormat = "poster" | "story";
+const HEIGHT: Record<CardFormat, number> = { poster: 1350, story: 1920 };
+
+/**
+ * Same poster as the Results screen: field color, giant accuracy, three plain stats, the
+ * wordmark small at the bottom. "story" is 1080×1920 for Instagram and WhatsApp stories,
+ * with the same layout set lower so it clears the story app's top bar.
+ */
+export async function renderShareCard(result: SessionResult, title: string, d: Deltas, format: CardFormat = "poster", kicker?: string): Promise<Blob> {
+  const H = HEIGHT[format];
+  const Y = format === "story" ? 250 : 0;
   await document.fonts?.ready;
   const canvas = document.createElement("canvas");
   canvas.width = W;
@@ -28,26 +36,26 @@ export async function renderShareCard(result: SessionResult, title: string, d: D
   ctx.textBaseline = "alphabetic";
 
   font(600, 40);
-  ctx.fillText(`${ACTIVITY_LABEL[result.activity]}, ${MODE_INFO[result.requestedMode].label}`, PAD, PAD + 40);
+  ctx.fillText(kicker ?? `${ACTIVITY_LABEL[result.activity]}, ${MODE_INFO[result.requestedMode].label}`, PAD, Y + PAD + 40);
 
   font(800, 84, "condensed");
-  wrap(ctx, title, PAD, PAD + 170, W - PAD * 2, 88);
+  wrap(ctx, title, PAD, Y + PAD + 170, W - PAD * 2, 88);
 
   font(800, 440, "condensed");
   const score = String(pct(result.accuracy));
-  ctx.fillText(score, PAD - 12, 860);
+  ctx.fillText(score, PAD - 12, Y + 860);
   const scoreWidth = ctx.measureText(score).width;
   font(800, 110, "condensed");
-  ctx.fillText("%", PAD + scoreWidth, 560);
+  ctx.fillText("%", PAD + scoreWidth, Y + 560);
 
   const stats: Array<[string, string, string]> = [
     ["Duration", minutesLabel(result.durationSeconds), ""],
     ["Challenges", String(result.challenges), `Best streak ${result.bestStreak}`],
     ["Average response", secs(result.avgRt), d.rtSeconds === null ? "" : rtDeltaText(d.rtSeconds)],
   ];
-  let y = 960;
+  let y = Y + 960;
   font(600, 34);
-  ctx.fillText(d.accuracyPoints === null ? "Accuracy" : `Accuracy. ${accuracyDeltaText(d.accuracyPoints)}.`, PAD, 920);
+  ctx.fillText(d.accuracyPoints === null ? "Accuracy" : `Accuracy. ${accuracyDeltaText(d.accuracyPoints)}.`, PAD, Y + 920);
   for (const [label, value, note] of stats) {
     ctx.fillRect(PAD, y, W - PAD * 2, 4);
     font(600, 38);

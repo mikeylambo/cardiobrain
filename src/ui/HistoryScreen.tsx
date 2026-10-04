@@ -1,6 +1,8 @@
 import React from "react";
 import type { ModeChoice, SessionResult } from "../engine/types";
-import { MODE_CHOICES, MODE_INFO } from "../modes/registry";
+import { MODE_CHOICES, MODE_INFO, PLAYABLE_MODES } from "../modes/registry";
+import { MAX_LEVEL } from "../engine/difficulty";
+import { dailyNumber } from "../engine/daily";
 import { useStore } from "../state/store";
 import { BackIcon, Sheet } from "./components";
 import { ACTIVITY_LABEL, minutesLabel, pct, secs, sessionNote, switchCostText } from "./copy";
@@ -144,6 +146,39 @@ function Detail({ r, onClose }: { r: SessionResult; onClose: () => void }) {
   );
 }
 
+/** Where the difficulty controller has each mode, 1 to 20. */
+function Levels() {
+  const progress = useStore((s) => s.progress);
+  return (
+    <div style={{ marginTop: 28 }}>
+      <div className="trend-head">
+        <span className="t-17">Levels</span>
+        <span className="t-14" style={{ color: "var(--muted)" }}>
+          of {MAX_LEVEL}
+        </span>
+      </div>
+      <ul className="levels">
+        {PLAYABLE_MODES.map((m) => {
+          const level = progress[m]?.level ?? 0;
+          return (
+            <li key={m}>
+              <span className="t-14">{MODE_INFO[m].label}</span>
+              <span
+                className="level-bar"
+                role="img"
+                aria-label={level ? `${MODE_INFO[m].label}, level ${level} of ${MAX_LEVEL}` : `${MODE_INFO[m].label}, not played yet`}
+              >
+                <span style={{ width: `${(level / MAX_LEVEL) * 100}%` }} />
+              </span>
+              <span className="num t-14 level-num">{level || "–"}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 export function HistoryScreen() {
   const history = useStore((s) => s.history);
   const go = useStore((s) => s.go);
@@ -189,6 +224,7 @@ export function HistoryScreen() {
             </>
           )}
           <ConsistencyStrip history={history} />
+          <Levels />
           <h2 className="t-24" style={{ marginTop: 28, fontWeight: 700 }}>
             Sessions
           </h2>
@@ -198,7 +234,9 @@ export function HistoryScreen() {
                 <span className="swatch" aria-hidden="true" />
                 <span className="stack">
                   <span className="t-17" style={{ fontWeight: 650 }}>
-                    {ACTIVITY_LABEL[h.activity]}, {h.guided ? "first round" : MODE_INFO[h.requestedMode].label}
+                    {h.daily
+                      ? `Daily #${dailyNumber(h.daily)}`
+                      : `${ACTIVITY_LABEL[h.activity]}, ${h.guided ? "first round" : MODE_INFO[h.requestedMode].label}`}
                   </span>
                   <span className="meta">
                     {new Date(h.startedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}, {minutesLabel(h.durationSeconds)}, {h.challenges}{" "}

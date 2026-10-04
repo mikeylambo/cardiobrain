@@ -3,7 +3,7 @@ import { hashSeed, mulberry32, shuffle } from "./rng";
 
 export const MIX_BLOCK_MS = 75_000;
 export const GUIDED_BLOCK_MS = 10_000;
-export const MIX_MODES: ModeId[] = ["numbers", "switch", "react", "recall", "rhyme"];
+export const MIX_MODES: ModeId[] = ["numbers", "switch", "react", "recall", "rhyme", "nback", "estimate", "rotate"];
 export const GUIDED_MODES: ModeId[] = ["numbers", "react", "switch"];
 
 /**

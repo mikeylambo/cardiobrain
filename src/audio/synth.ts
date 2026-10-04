@@ -68,9 +68,17 @@ const RECALL_NOTES: Record<string, number> = {
 export const sfx = {
   tick: () => tone(740, 0.06, 0.18, 0, "triangle"),
   go: () => tone(988, 0.14, 0.2, 0, "triangle"),
-  correct: () => {
-    tone(784, 0.09, 0.2);
-    tone(1046.5, 0.14, 0.18, 0.07);
+  /** The chime climbs a semitone per answer in a streak, up to an octave, then holds. */
+  correct: (streak = 1) => {
+    const lift = 2 ** (Math.min(12, Math.max(0, streak - 1)) / 12);
+    tone(784 * lift, 0.09, 0.2);
+    tone(1046.5 * lift, 0.14, 0.18, 0.07);
+  },
+  /** Interval change: two notes down into recovery, two up back into work. */
+  bout: (toWork: boolean) => {
+    const [a, b] = toWork ? [523.25, 783.99] : [783.99, 523.25];
+    tone(a, 0.12, 0.18, 0, "triangle");
+    tone(b, 0.16, 0.18, 0.12, "triangle");
   },
   wrong: () => tone(196, 0.16, 0.22, 0, "triangle"),
   streak: (n: number) => {

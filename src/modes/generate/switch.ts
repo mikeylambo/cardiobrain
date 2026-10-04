@@ -39,12 +39,12 @@ export const generateSwitch: Generator = (level, rng, ctx): Challenge => {
   const options =
     rule === "parity"
       ? [
-          { id: "odd", label: "Odd" },
-          { id: "even", label: "Even" },
+          { id: "odd", label: "Odd", say: ["odd", "on"] },
+          { id: "even", label: "Even", say: ["even", "evan"] },
         ]
       : [
-          { id: "low", label: `Under ${pivot}` },
-          { id: "high", label: `Over ${pivot}` },
+          { id: "low", label: `Under ${pivot}`, say: ["under", "lower", "low", "less", "below", "smaller", "down"] },
+          { id: "high", label: `Over ${pivot}`, say: ["over", "higher", "high", "more", "above", "bigger", "up"] },
         ];
   const correctAnswer = rule === "parity" ? (n % 2 ? "odd" : "even") : n < pivot ? "low" : "high";
   return {
@@ -56,6 +56,8 @@ export const generateSwitch: Generator = (level, rng, ctx): Challenge => {
     options,
     correctAnswer,
     switchTrial,
+    speech: `${switchTrial ? "Switch. " : ""}${RULE_CUE[rule]}. ${n}.`,
+    voice: true,
     targetRt: targetResponseMs("switch", level, ctx.activity, ctx.bias),
     data: { rule, n, pivot },
   };

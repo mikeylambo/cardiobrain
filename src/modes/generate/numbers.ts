@@ -58,6 +58,11 @@ function problem(level: number, rng: Rng): { question: string; answer: number } 
   return { question: `${a} ${opText} ${b}`, answer };
 }
 
+/** "47 × 3 − 2" read aloud: "47 times 3, minus 2". */
+export function spoken(question: string): string {
+  return question.replace(/×/g, "times").replace(/÷/g, "divided by").replace(/\+/g, "plus").replace(new RegExp(MINUS, "g"), "minus");
+}
+
 export const generateNumbers: Generator = (level, rng, ctx): Challenge => {
   const { question, answer } = problem(level, rng);
   const count = level < 6 ? 2 : 4;
@@ -71,6 +76,8 @@ export const generateNumbers: Generator = (level, rng, ctx): Challenge => {
     options: values.map((v) => ({ id: `n${v}`, label: fmt(v) })),
     correctAnswer: `n${answer}`,
     targetRt: targetResponseMs("numbers", level, ctx.activity, ctx.bias),
+    speech: spoken(question),
+    voice: true,
     data: { answer },
   };
 };

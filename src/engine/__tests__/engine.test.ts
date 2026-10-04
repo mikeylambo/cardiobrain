@@ -73,7 +73,7 @@ describe("mix", () => {
     for (let seed = 0; seed < 300; seed++) {
       const seq = Array.from({ length: 25 }, (_, b) => mixModeAt(seed, b));
       for (let i = 1; i < seq.length; i++) expect(seq[i]).not.toBe(seq[i - 1]);
-      expect(new Set(seq.slice(0, 5)).size).toBe(MIX_MODES.length);
+      expect(new Set(seq.slice(0, MIX_MODES.length)).size).toBe(MIX_MODES.length);
     }
   });
 });

@@ -49,6 +49,7 @@ export const generateRecall: Generator = (level, rng, ctx): Challenge => {
     prompt: "",
     options: pads.map((s) => ({ id: s, label: SHAPE_LABEL[s] })),
     correctAnswer: sequence.join(" "),
+    voice: false,
     targetRt: targetResponseMs("recall", level, ctx.activity, ctx.bias) * (0.6 + length * 0.2),
     data: { sequence, stepMs },
   };

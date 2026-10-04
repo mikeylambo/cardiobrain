@@ -1,10 +1,14 @@
 import React from "react";
 import { sfx } from "../audio/synth";
+import { hush, readOptions, say } from "../audio/speech";
+import { listen } from "../audio/listen";
+import { matchSpoken } from "../audio/voiceMatch";
 import { haptics } from "../haptics";
 import { MODE_INFO, MODE_VIEWS } from "../modes/registry";
 import type { Feedback } from "../modes/shared";
 import { elapsedMs, useStore } from "../state/store";
 import { formatClock } from "../engine/session";
+import { intervalAt } from "../engine/intervals";
 import { onAppStateChange } from "../platform/native";
 import { releaseWakeLock, requestWakeLock } from "../wakelock";
 import { PauseIcon, Sheet, useLongPress } from "./components";
@@ -12,10 +16,15 @@ import { Countdown } from "./CountdownScreen";
 
 const FEEDBACK_MS = { correct: 280, wrong: 700 };
 const TRANSITION_MS = 1200;
+/** Coach lines show on the first few challenges of a mode you have never played. */
+const COACH_TRIALS = 3;
+const GUIDED_COACH = ["Tap the answer.", "Faster is better, but accuracy counts more.", "That's the whole game."];
 
 export function SessionScreen() {
   // Every hook sits above the first return. v1 crashed on pause because it did not.
   const active = useStore((s) => s.active);
+  const prefs = useStore((s) => s.prefs);
+  const flags = useStore((s) => s.flags);
   const countdownDone = useStore((s) => s.countdownDone);
   const markPresented = useStore((s) => s.markPresented);
   const answer = useStore((s) => s.answer);
@@ -27,18 +36,28 @@ export function SessionScreen() {
   const tick = useStore((s) => s.tick);
   const backgrounded = useStore((s) => s.backgrounded);
   const foregrounded = useStore((s) => s.foregrounded);
+  const markModeSeen = useStore((s) => s.markModeSeen);
+  const markPauseHintShown = useStore((s) => s.markPauseHintShown);
+  const heart = useStore((s) => s.heart);
 
   const [, setClock] = React.useState(0);
   const [feedback, setFeedback] = React.useState<Feedback | null>(null);
   const [announce, setAnnounce] = React.useState("");
   const [confirmEnd, setConfirmEnd] = React.useState(false);
   const [wiping, setWiping] = React.useState(false);
+  const [voiceNote, setVoiceNote] = React.useState<string | null>(null);
+  const [coachMode, setCoachMode] = React.useState<string | null>(null);
+  const [showPauseHint, setShowPauseHint] = React.useState(false);
   const advanceTimer = React.useRef<number | null>(null);
+  const coachCount = React.useRef<Record<string, number>>({});
 
   const phase = active?.phase;
   const current = active?.current ?? null;
   const transition = active?.transition ?? null;
+  const resting = active?.resting ?? false;
   const countdownKind = active?.countdownKind;
+  const presentedAt = active?.presentedAt ?? null;
+  const answered = active?.answered ?? false;
 
   // Clock: re-render the rail and let the store finish on time and save every 5s.
   React.useEffect(() => {
@@ -49,10 +68,13 @@ export function SessionScreen() {
     return () => window.clearInterval(id);
   }, [tick]);
 
-  // Screen stays on for the whole session.
+  // Screen stays on for the whole session; speech stops when it ends.
   React.useEffect(() => {
     void requestWakeLock();
-    return () => void releaseWakeLock();
+    return () => {
+      void releaseWakeLock();
+      hush();
+    };
   }, []);
 
   // Backgrounded, a call, or the phone locked: stop the clock; over 3s away, pause.
@@ -79,13 +101,22 @@ export function SessionScreen() {
   React.useEffect(() => {
     if (!transition || phase !== "running") return;
     sfx.transition();
+    if (prefs.speak) say(`Next up, ${MODE_INFO[transition].label}.`);
     const t = window.setTimeout(endTransition, TRANSITION_MS);
     return () => window.clearTimeout(t);
-  }, [transition, phase, endTransition]);
+  }, [transition, phase, endTransition, prefs.speak]);
 
-  // React no-go and misses: the trial ends by itself once its window passes.
-  const presentedAt = active?.presentedAt ?? null;
-  const answered = active?.answered ?? false;
+  // Interval bouts: a cue on every change between work and recovery.
+  const wasResting = React.useRef(resting);
+  React.useEffect(() => {
+    if (phase !== "running" || wasResting.current === resting) return;
+    wasResting.current = resting;
+    const toWork = active ? intervalAt(elapsedMs(active), active.intervals, active.playDuring).bout === "work" : true;
+    sfx.bout(toWork);
+    haptics.switch();
+    if (prefs.speak) say(resting ? (toWork ? "Push. Challenges are paused." : "Recover. Challenges are paused.") : "Challenges back on.");
+  }, [resting, phase, active, prefs.speak]);
+
   const handleAnswer = React.useCallback(
     (answerId: string) => {
       const c = useStore.getState().active?.current;
@@ -93,7 +124,7 @@ export function SessionScreen() {
       if (!outcome || !c) return;
       setFeedback({ challengeId: c.id, pickedId: answerId, correct: outcome.correct, correctId: c.correctAnswer });
       if (outcome.correct) {
-        sfx.correct();
+        sfx.correct(outcome.streak);
         haptics.correct();
       } else {
         sfx.wrong();
@@ -119,12 +150,60 @@ export function SessionScreen() {
     [answer, advance],
   );
 
+  // React no-go and misses: the trial ends by itself once its window passes.
   React.useEffect(() => {
     if (phase !== "running" || !current?.timeoutMs || presentedAt === null || answered) return;
     const fallback = current.timeoutAnswer ?? "timeout";
     const t = window.setTimeout(() => handleAnswer(fallback), Math.max(0, current.timeoutMs - (performance.now() - presentedAt)));
     return () => window.clearTimeout(t);
   }, [phase, current, presentedAt, answered, handleAnswer]);
+
+  // Spoken prompts: read the challenge (and, eyes-free, the answers with their places).
+  const spokenFor = React.useRef<string | null>(null);
+  const speakingUntil = React.useRef(0);
+  React.useEffect(() => {
+    if (!prefs.speak || phase !== "running" || !current || spokenFor.current === current.id) return;
+    spokenFor.current = current.id;
+    const parts = [current.speech ?? ""];
+    if (prefs.eyesFree && current.voice !== false && current.options.length <= 4) parts.push(readOptions(current.options.map((o) => o.label)));
+    const text = parts.filter(Boolean).join(" ");
+    if (!text) return;
+    say(text);
+    // Rough speaking time, so voice answers don't hear the prompt itself.
+    speakingUntil.current = performance.now() + text.split(/\s+/).length * 330 + 250;
+  }, [prefs.speak, prefs.eyesFree, phase, current]);
+
+  // Voice answers: one listener for the session, matched against whatever is on screen.
+  React.useEffect(() => {
+    if (!prefs.voiceAnswers || phase !== "running") return;
+    const l = listen(
+      (heard) => {
+        const s = useStore.getState().active;
+        const c = s?.current;
+        if (!s || !c || c.voice === false || s.answered || s.presentedAt === null) return;
+        if (performance.now() < speakingUntil.current) return;
+        const id = matchSpoken(heard, c.options);
+        if (id) handleAnswer(id);
+      },
+      (message) => setVoiceNote(message),
+    );
+    return () => l.stop();
+  }, [prefs.voiceAnswers, phase, handleAnswer]);
+
+  // First-time coach line for each mode, on its first few challenges.
+  const [seenAtStart] = React.useState(() => new Set(flags.seenModes));
+  React.useEffect(() => {
+    if (!current || phase !== "running") return;
+    const mode = current.mode;
+    if (seenAtStart.has(mode)) {
+      setCoachMode(null);
+      return;
+    }
+    const n = (coachCount.current[current.id] =
+      coachCount.current[current.id] ?? Object.keys(coachCount.current).filter((k) => k.startsWith(`${mode}-`)).length + 1);
+    setCoachMode(n <= COACH_TRIALS ? mode : null);
+    markModeSeen(mode);
+  }, [current, phase, seenAtStart, markModeSeen]);
 
   // A pause drops any pending advance; resume replays or re-generates the challenge.
   React.useEffect(() => {
@@ -134,7 +213,15 @@ export function SessionScreen() {
       advanceTimer.current = null;
     }
     setFeedback(null);
+    hush();
+    spokenFor.current = null;
   }, [phase]);
+
+  React.useEffect(() => {
+    if (phase !== "paused" || flags.pauseHintShown) return;
+    setShowPauseHint(true);
+    markPauseHintShown();
+  }, [phase, flags.pauseHintShown, markPauseHintShown]);
 
   React.useEffect(
     () => () => {
@@ -176,9 +263,19 @@ export function SessionScreen() {
   const progress = active.durationSeconds ? Math.min(1, elapsed / (active.durationSeconds * 1000)) : null;
   const View = current ? MODE_VIEWS[current.mode] : null;
   const modeLabel = MODE_INFO[active.currentMode].label;
+  const bout = intervalAt(elapsed, active.intervals, active.playDuring);
+  // The guided first round has its own three lines; after that, the per-mode coach.
+  const guidedLine = active.guided && current ? GUIDED_COACH[active.trialIndex] : undefined;
+  const coach = guidedLine ?? (coachMode && current?.mode === coachMode && !feedback ? MODE_INFO[current.mode].instruction : null);
 
   return (
-    <div className="session field" data-activity={active.activity}>
+    <div
+      className="session field"
+      data-activity={active.activity}
+      data-dark={prefs.darkSessions ? "true" : undefined}
+      data-distance={prefs.distance}
+      data-eyes-free={prefs.eyesFree ? "true" : undefined}
+    >
       <div className="session-bar">
         {progress !== null ? (
           <div
@@ -197,6 +294,17 @@ export function SessionScreen() {
         <span className="clock num" aria-label={`Elapsed ${formatClock(elapsed)}`}>
           {formatClock(elapsed)}
         </span>
+        {heart && Date.now() - heart.at < 10_000 && (
+          <span className="hr num" aria-label={`Heart rate ${heart.bpm}, zone ${heart.zone}`}>
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+              <path
+                d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.7 4.5c2.1 0 3.6 1.2 4.3 2.6.7-1.4 2.2-2.6 4.3-2.6 3.7 0 5.8 3.9 4.3 7.3C19.5 16.4 12 21 12 21z"
+                fill="currentColor"
+              />
+            </svg>
+            {heart.bpm} Z{heart.zone}
+          </span>
+        )}
         {active.streak >= 3 && (
           <span className="streak num" aria-label={`${active.streak} in a row`}>
             ×{active.streak}
@@ -215,8 +323,15 @@ export function SessionScreen() {
         </button>
       </div>
 
-      <div className={`stack grow${wiping ? " wipe" : ""}`} style={{ minHeight: 0 }}>
-        {phase === "running" && View && current && !transition && (
+      {coach && (
+        <p className="coach" role="status">
+          {!guidedLine && <strong>New: {MODE_INFO[current!.mode].label}. </strong>}
+          {coach}
+        </p>
+      )}
+
+      <div className={`stack grow session-body${wiping ? " wipe" : ""}`} style={{ minHeight: 0 }}>
+        {phase === "running" && View && current && !transition && !resting && (
           <View
             key={`${current.id}-${active.presentation}`}
             challenge={current}
@@ -226,13 +341,28 @@ export function SessionScreen() {
             entering={wiping}
           />
         )}
+        {phase === "running" && resting && (
+          <div className="rest-card" role="status" aria-live="polite">
+            <p className="cue">{bout.bout === "rest" ? "Recover" : "Push"}</p>
+            <p className="display rest-clock num">{formatClock(bout.remainingMs)}</p>
+            <p className="t-24">
+              {bout.bout === "rest" ? "Breathe. Challenges return when the next work bout starts." : "Work hard. Challenges return when you recover."}
+            </p>
+          </div>
+        )}
       </div>
+
+      {voiceNote && (
+        <p className="voice-note" role="alert">
+          {voiceNote}
+        </p>
+      )}
 
       {phase === "countdown" && (
         <Countdown
           key={`${countdownKind}-${active.presentation}`}
           onFinished={onCountdownFinished}
-          label={countdownKind === "resume" ? "Back in" : MODE_INFO[active.guided ? "mix" : active.requestedMode].label}
+          label={countdownKind === "resume" ? "Back in" : active.daily ? "Daily challenge" : MODE_INFO[active.guided ? "mix" : active.requestedMode].label}
         />
       )}
 
@@ -253,6 +383,7 @@ export function SessionScreen() {
             <p className="t-17">
               {formatClock(elapsed)} in, {active.trials.length} {active.trials.length === 1 ? "challenge" : "challenges"} done.
             </p>
+            {showPauseHint && <p className="t-17 hint">Tip: press and hold the pause button to end a session in one step.</p>}
           </div>
           <div className="stack gap-12">
             <button className="btn-primary" onClick={resume} autoFocus>
