@@ -65,6 +65,10 @@ test.describe("CardioBrain visual review", () => {
 
     await page.getByText("View history").click();
     await page.screenshot({ path: "artifacts/history.png", fullPage: true });
+    if (await page.locator(".session-row").count()) {
+      await page.locator(".session-row").first().click();
+      await page.screenshot({ path: "artifacts/history-detail.png", fullPage: true });
+    }
 
     await page.getByText("SETTINGS").click();
     await page.screenshot({ path: "artifacts/settings.png", fullPage: true });
@@ -93,6 +97,23 @@ test.describe("CardioBrain visual review", () => {
 
     await page.getByText("View history").click();
     await expect(page.getByText("SESSIONS")).toBeVisible();
+    await expect(page.locator(".session-row")).toHaveCount(1);
+  });
+
+  test("pause state survives reload and then a full short session", async ({ page }) => {
+    await boot(page);
+    await startMode(page, "Numbers");
+    await page.locator(".answer-pad").first().click();
+    await page.getByRole("button", { name: /Pause session/ }).click();
+    await expect(page.getByText("PAUSED")).toBeVisible();
+    await page.waitForTimeout(200);
+    await page.reload();
+
+    await expect(page.getByText("SESSION STILL OPEN")).toBeVisible();
+    await page.getByText("Resume").click();
+    await expect(page.getByText("GO")).toBeVisible({ timeout: 5000 });
+    await playUntilResults(page);
+    await page.getByText("View history").click();
     await expect(page.locator(".session-row")).toHaveCount(1);
   });
 
