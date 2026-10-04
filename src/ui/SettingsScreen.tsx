@@ -22,9 +22,9 @@ export function SettingsScreen({navigate}:{navigate:(screen:"home"|"setup"|"hist
     <div className="panel"><div className="eyebrow">YOUR DATA</div>
       <div className="setting-row"><div><strong>{history.length}</strong><div className="row-sub">stored sessions</div></div><button className="action-secondary" style={{minHeight:44,padding:"0 14px"}} onClick={()=>exportData(history,progress,prefs)}>Export JSON</button></div>
       <div className="setting-row"><div><strong>Local only</strong><div className="row-sub">No account or server database.</div></div><span style={{color:"var(--activity)"}}>✓</span></div>
-      <div className="setting-row"><div><strong>Reset everything</strong><div className="row-sub">History, active session, and difficulty.</div></div><button className="action-secondary" style={{minHeight:44,padding:"0 14px"}} onClick={()=>setConfirm(true)}>Reset</button></div>
+      <div className="setting-row"><div><strong>Reset app</strong><div className="row-sub">History, learned levels, preferences, and onboarding.</div></div><button className="action-secondary" style={{minHeight:44,padding:"0 14px"}} onClick={()=>setConfirm(true)}>Reset app</button></div>
     </div>
-    {confirm&&<div className="panel"><strong>Clear all CardioBrain data?</strong><p className="body-copy">This cannot be undone.</p><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><button className="action-secondary" onClick={()=>setConfirm(false)}>Cancel</button><button className="action-primary" onClick={async()=>{await reset();setConfirm(false)}}>Clear data</button></div></div>}
+    {confirm&&<div className="panel" role="alertdialog" aria-label="Reset CardioBrain"><div className="eyebrow">RESET APP</div><strong>Start CardioBrain fresh?</strong><p className="body-copy">This clears sessions, learned levels, preferences, and the onboarding state. It cannot be undone.</p><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><button className="action-secondary" onClick={()=>setConfirm(false)}>Cancel</button><button className="action-primary" onClick={async()=>{await reset();setConfirm(false)}}>Reset app</button></div></div>
     <div className="tap-note" style={{textAlign:"center"}}>CARDIOBRAIN 1.0 · OFFLINE-FIRST</div>
     <BottomNav active="settings" navigate={navigate}/>
   </main>;
