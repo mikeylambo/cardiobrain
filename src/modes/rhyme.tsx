@@ -157,13 +157,22 @@ function oddOneChallenge(level:number,rng:()=>number,ctx:Parameters<ModeDefiniti
 
 function makeChallenge(type:"perfect"|"slant"|"chain"|"odd",level:number,prompt:string,words:Word[],answer:string,ctx:Parameters<ModeDefinition["generate"]>[2]):Challenge{
   const labels=type==="perfect"?"PERFECT":type==="slant"?"SLANT":type==="chain"?"CHAIN":"ODD ONE OUT";
+  const seedRng=mulberry32FromWord(prompt+ctx.trialIndex);
+  const unique:Word[]=[];
+  const seen=new Set<string>();
+  for(const word of [...words,...shuffle(WORDS,seedRng)]){
+    if(seen.has(word.word))continue;
+    seen.add(word.word);
+    unique.push(word);
+    if(unique.length===4)break;
+  }
   return {
     id:`rhyme-${type}-${level}-${ctx.trialIndex}`,
     mode:"rhyme",
     kind:"rhyme",
     level,
     prompt,
-    options:shuffle(words.map((w)=>({id:w.word,label:w.word})),mulberry32FromWord(prompt+ctx.trialIndex)),
+    options:shuffle(unique.map((w)=>({id:w.word,label:w.word})),mulberry32FromWord("options:"+prompt+ctx.trialIndex)),
     correctAnswer:answer,
     targetRt:targetResponseMs("rhyme",level,ctx.activity,ctx.bias),
     data:{type,label:labels}
