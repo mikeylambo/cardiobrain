@@ -121,8 +121,8 @@ export const useCardioStore = create<Store>((set, get) => ({
     const prefs = loadPrefs();
     const progress = ensureProgress(loadProgress());
     const onboardingDone = localStorage.getItem("cb-onboarding") === "1";
-    const resumable = activeSnapshot && Date.now() - activeSnapshot.startedAt < 30 * 60 * 1000 && activeSnapshot.status !== "finished";
-    const active = resumable ? { ...activeSnapshot, trialStartedPerf: performance.now() } : null;
+    const resumable = Boolean(activeSnapshot && Date.now() - activeSnapshot.startedAt < 30 * 60 * 1000 && activeSnapshot.status !== "finished");
+    const active = resumable && activeSnapshot ? { ...activeSnapshot, trialStartedPerf: performance.now() } : null;
     if (!resumable && activeSnapshot) await clearActiveSession();
     set({
       hydrated:true, history, prefs, progress, onboardingDone,
