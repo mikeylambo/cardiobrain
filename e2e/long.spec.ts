@@ -4,7 +4,7 @@
 import { expect, test } from "@playwright/test";
 import { pauseAndResume, play, prime, setHidden, startFromHome, watchErrors, type Mode } from "./helpers";
 
-const MODES: Mode[] = ["numbers", "switch", "react", "recall", "rhyme", "mix"];
+const MODES: Mode[] = ["numbers", "switch", "react", "recall", "rhyme", "nback", "estimate", "rotate", "mix"];
 const SECONDS = Number(process.env.LONG_SECONDS ?? 180);
 const SLICE = Math.round((SECONDS * 1000 * 0.45) / 10);
 

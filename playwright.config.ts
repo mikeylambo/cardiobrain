@@ -26,5 +26,7 @@ export default defineConfig({
   projects: [
     { name: "iphone-14", use: { ...devices["iPhone 14"], browserName: "chromium", defaultBrowserType: "chromium" } },
     { name: "pixel-7", use: { ...devices["Pixel 7"] } },
+    // Real WebKit, the engine behind Safari on iPhone. Runs in CI on macOS (PW_WEBKIT=1).
+    ...(process.env.PW_WEBKIT ? [{ name: "iphone-14-webkit", use: { ...devices["iPhone 14"], launchOptions: {} } }] : []),
   ],
 });

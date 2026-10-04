@@ -2,6 +2,50 @@
 
 Calls made during the builds, newest first. Each one can be revisited; the reason is here so it does not have to be rediscovered.
 
+## v2.1 (October 2026)
+
+### Scope
+
+- Built everything in the refinement list except items 11 and 12 (Bar mode, syllable count), which were declined.
+- **Device-dependent features:** the owner has no test devices or developer accounts yet.
+  - **Built and tested in the browser with fakes:** spoken prompts, voice answers and Bluetooth heart rate. Each e2e test installs a stand-in for the browser API.
+  - **Built, untested (marked so in the code):** the native paths for text-to-speech, speech recognition, Bluetooth and Health logging.
+  - **Spec only:** the Apple Watch companion and the Home Screen widget, in `docs/native/`. Building them blind would ship Swift and Kotlin that has never run.
+
+### Play while moving
+
+- **Spoken prompts:** generators now produce `speech` text, so what is read aloud is tested alongside the challenge. Eyes-free adds the answers with their places ("Left, odd. Right, even.").
+- **Voice answers:** a pure matcher (`src/audio/voiceMatch.ts`, unit-tested) normalises spoken numbers ("a hundred and four", "minus five") and option aliases ("higher", "over"). The last thing said wins, because people correct themselves. React and Recall stay tap-only: reflex timing and sequences don't suit speech. Transcripts arriving while the app itself is speaking are ignored, so the prompt can't answer itself.
+- **Native speech:** Capacitor Text-to-Speech, because Android's WebView has no speechSynthesis. Voice input uses @capgo/capacitor-speech-recognition, chosen over the community plugin because that one has no Swift Package Manager support and would be silently dropped from the iOS build.
+- **Landscape:** allowed on phones, with stimulus on the left and tiles on the right. The desktop centering rule no longer applies to short landscape screens, which had clamped the treadmill layout to 480px.
+- **Intervals:** 30/30, 1/1 and 4/1 minutes. Challenges play during work bouts or during recovery, and the other bout shows a quiet card with a countdown. Interval timing is a pure function of elapsed running time, so pause and reload can't desync it.
+
+### New modes
+
+- **N-back:** 1-back to 3-back by level. The stream is the session's real memory of shown letters (`memory` in the snapshot), so N can change mid-block without corrupting matches. Memory resets at each Mix block.
+- **Estimate:** options sit on a geometric ladder (Weber ratio 1.75 down to 1.18), and the right answer is always the exact count. Dots are scattered without overlap, hidden after 1.6 to 0.65 seconds, and shown again after answering so you can check.
+- **Rotate:** ten polyominoes, each tested to be chiral, so "same or mirror" always has exactly one answer. Angles grow from quarter turns to 30-degree steps.
+
+### Measurement
+
+- **Seated baseline:** a fifth activity, "still", on a chalk field. Motion cost compares the last moving session with the mean of the last three seated sessions of the same mode.
+- **Effort:** a 1–10 rating with Borg CR10 anchors. **Mood** check-ins are optional and off by default, because they add a tap before starting.
+- **Insights:** every finding needs a minimum sample (usually 3 per group) and a difference worth mentioning (3+ accuracy points). The copy describes patterns, never causes.
+- **Science notes:** each cites the classic paradigm the task is modelled on, and says plainly that transfer to everyday thinking is debated. **These are worth a review by you as a psychologist.**
+
+### Progress
+
+- **Daily challenge:** the seed comes from the local date. It runs six 30-second blocks at fixed levels 3, 5, 7 and up, using walking timing and standard bias for everyone. It never touches personal levels.
+- **Personal bests:** accuracy needs 20 or more challenges, and a speed best needs 80% or better accuracy, so mashing fast never wins it.
+- **Headlines:** under 3 points and under 0.1s count as "the same". Trade-offs name both sides ("Faster, but less accurate than last time.").
+
+### Platform
+
+- **Heart rate:** the standard GATT Heart Rate service. Zones are shares of max heart rate (set in Settings). Zones 3, 4 and 5 widen answer windows by 1.1×, 1.25× and 1.4×. The daily challenge ignores heart rate.
+- **Health:** the plugin can't write workouts, so sessions are written as Mindful Minutes. Off by default.
+- **Code splitting:** History, Insights, Settings and the share card are separate chunks. The rhyme words preload on idle. The main bundle is about 106 KB gzipped.
+- **CI:** GitHub Actions runs the full gated build and e2e suite on Chromium, plus a real WebKit (Safari engine) job on macOS. That job is the first true Safari coverage; until now iPhone was emulated in Chromium.
+
 ## v2 (October 2026)
 
 ### Scope and process

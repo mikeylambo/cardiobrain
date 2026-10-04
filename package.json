@@ -1,7 +1,7 @@
 {
   "name": "cardiobrain",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,18 +14,18 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "playwright test e2e/smoke.spec.ts e2e/flows.spec.ts e2e/review.spec.ts",
+    "e2e": "playwright test e2e/smoke.spec.ts e2e/flows.spec.ts e2e/review.spec.ts e2e/features.spec.ts e2e/a11y.spec.ts",
     "e2e:long": "playwright test e2e/long.spec.ts",
     "contrast": "node scripts/check-contrast.mjs",
     "icons": "node scripts/build-icons.mjs",
-    "screens": "playwright test e2e/screens.spec.ts --project iphone-14",
+    "screens": "playwright test e2e/screens.spec.ts e2e/screens-v21.spec.ts --project iphone-14",
     "cap:sync": "npm run build && cap sync",
-    "store:screens": "playwright test e2e/store.spec.ts --project iphone-14"
+    "store:screens": "playwright test e2e/store.spec.ts --project iphone-14",
+    "store:preview": "playwright test e2e/preview.spec.ts --project iphone-14"
   },
   "dependencies": {
     "@capacitor-community/bluetooth-le": "^8.3.0",
     "@capacitor-community/keep-awake": "^8.0.1",
-    "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor-community/text-to-speech": "^8.0.2",
     "@capacitor/app": "^8.1.2",
     "@capacitor/core": "^8.5.2",
@@ -35,6 +35,7 @@
     "@capacitor/splash-screen": "^8.0.2",
     "@capacitor/status-bar": "^8.0.4",
     "@capgo/capacitor-health": "^8.11.4",
+    "@capgo/capacitor-speech-recognition": "^8.3.2",
     "@fontsource-variable/archivo": "^5.3.0",
     "idb-keyval": "^6.2.1",
     "react": "^19.1.1",
@@ -42,6 +43,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@capacitor/android": "^8.5.2",
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.5.2",

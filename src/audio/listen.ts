@@ -1,5 +1,5 @@
 // Voice answers. Web Speech Recognition where the browser has it (Chrome, Edge, Safari),
-// the Capacitor speech-recognition plugin in the native apps. Untested on a real phone:
+// the Capgo speech-recognition plugin (Swift Package Manager compatible) in the native apps. Untested on a real phone:
 // the native path needs a device to verify.
 import { isNative } from "../platform/native";
 
@@ -34,25 +34,31 @@ export interface Listener {
 export function listen(onHeard: (transcript: string) => void, onError: (message: string) => void): Listener {
   let stopped = false;
   if (isNative) {
-    let remove: (() => void) | null = null;
+    const handles: Array<{ remove: () => Promise<void> }> = [];
     void (async () => {
       try {
-        const { SpeechRecognition } = await import("@capacitor-community/speech-recognition");
+        const { SpeechRecognition } = await import("@capgo/capacitor-speech-recognition");
         const perm = await SpeechRecognition.requestPermissions();
         if (perm.speechRecognition !== "granted") {
           onError("Microphone access is off. Turn it on in Settings to answer by voice.");
           return;
         }
-        const handle = await SpeechRecognition.addListener("partialResults", (d: { matches?: string[] }) => {
-          if (d.matches?.[0]) onHeard(d.matches[0]);
-        });
-        remove = () => void handle.remove();
-        const loop = async () => {
-          while (!stopped) {
-            await SpeechRecognition.start({ language: "en-US", partialResults: true, popup: false }).catch(() => undefined);
-          }
+        const begin = () => {
+          if (!stopped) void SpeechRecognition.start({ language: "en-US", partialResults: true, popup: false }).catch(() => undefined);
         };
-        void loop();
+        handles.push(
+          await SpeechRecognition.addListener("partialResults", (d) => {
+            if (d.matches?.[0]) onHeard(d.matches[0]);
+          }),
+        );
+        // The recogniser ends after a pause in speech; start the next segment straight away.
+        handles.push(await SpeechRecognition.addListener("readyForNextSession", begin));
+        handles.push(
+          await SpeechRecognition.addListener("listeningState", (e) => {
+            if (e.state === "stopped") begin();
+          }),
+        );
+        begin();
       } catch {
         onError("Voice answers aren't available on this device.");
       }
@@ -60,8 +66,8 @@ export function listen(onHeard: (transcript: string) => void, onError: (message:
     return {
       stop: () => {
         stopped = true;
-        remove?.();
-        void import("@capacitor-community/speech-recognition").then(({ SpeechRecognition }) => SpeechRecognition.stop()).catch(() => undefined);
+        handles.forEach((h) => void h.remove());
+        void import("@capgo/capacitor-speech-recognition").then(({ SpeechRecognition }) => SpeechRecognition.stop()).catch(() => undefined);
       },
     };
   }

@@ -23,3 +23,12 @@ Home shows the activity name in display type and the preset ("Mix, 20 min").
 
 - **Pause:** tap the icon. Press and hold it to open "End this session?".
 - **Results:** Go again (same settings), Change (the sheet), Share (PNG card), Home.
+
+## v2.1 additions
+
+- **Daily:** Home, then Daily #N, 3-2-1, six 30-second blocks, then Results ("Daily #N done."). Home then shows "Done today: N%".
+- **Seated baseline:** Change, Seated, Start. Results says "Seated baseline saved". The next moving session of that mode shows its motion cost.
+- **Intervals:** Change, Intervals 1/1 min, Start. The work bout plays challenges; recovery shows a countdown card, then challenges return.
+- **Mood (when on):** Start, "How do you feel?", one tap or skip, then the 3-2-1. Results asks again.
+- **Start links:** `/?start=bike&mode=nback` or `cardiobrain://start?activity=bike` go straight to the countdown.
+- **Backup:** Settings, Back up (export) downloads a file. Restore from a backup (import) merges it with no duplicates.

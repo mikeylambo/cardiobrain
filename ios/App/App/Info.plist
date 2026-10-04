@@ -73,6 +73,8 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>CardioBrain connects to your heart-rate strap so harder efforts get more time to answer.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>CardioBrain listens for your answers when you turn on voice answers. Audio is not recorded or sent anywhere by CardioBrain.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>

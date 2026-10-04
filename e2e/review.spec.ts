@@ -53,7 +53,7 @@ test("welcome", async ({ page }, info) => {
   await checkFloor(page, "welcome");
 });
 
-for (const mode of ["numbers", "switch", "react", "recall", "rhyme"] as Mode[]) {
+for (const mode of ["numbers", "switch", "react", "recall", "rhyme", "nback", "estimate", "rotate"] as Mode[]) {
   test(`session: ${mode}`, async ({ page }, info) => {
     test.skip(info.project.name !== "pixel-7");
     await prime(page, { mode, seconds: 600 });
@@ -77,4 +77,41 @@ test("results, with text at 200%", async ({ page }, info) => {
   await page.waitForTimeout(1500);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
   expect(overflow).toBe(false);
+});
+
+test.describe("landscape phone", () => {
+  test.use({ viewport: { width: 800, height: 360 } });
+  for (const mode of ["numbers", "react", "recall", "estimate"] as Mode[]) {
+    test(`landscape session: ${mode}`, async ({ page }, info) => {
+      test.skip(info.project.name !== "pixel-7");
+      await prime(page, { mode, seconds: 600 });
+      await page.goto("/");
+      await startFromHome(page);
+      await page.waitForTimeout(mode === "recall" ? 2500 : 1200);
+      const r = await page.evaluate(() => {
+        const tiles = Array.from(document.querySelectorAll<HTMLElement>(".tile")).map((t) => t.getBoundingClientRect());
+        return {
+          overflow: document.documentElement.scrollWidth > innerWidth + 1,
+          offscreen: tiles.some((b) => b.bottom > innerHeight + 1 || b.right > innerWidth + 1),
+          minH: Math.min(...tiles.map((b) => b.height)),
+        };
+      });
+      expect(r.overflow).toBe(false);
+      expect(r.offscreen).toBe(false);
+      expect(r.minH).toBeGreaterThanOrEqual(48);
+    });
+  }
+});
+
+test("settings, insights and seated session meet the floor", async ({ page }, info) => {
+  test.skip(info.project.name !== "pixel-7");
+  await prime(page, { activity: "still", mode: "numbers", seconds: 600 });
+  await page.goto("/");
+  await seedHistory(page);
+  await page.getByRole("button", { name: "Insights" }).click();
+  await checkFloor(page, "insights");
+  await page.getByRole("button", { name: "Back to Home" }).click();
+  await startFromHome(page);
+  await page.waitForTimeout(800);
+  await checkFloor(page, "seated session");
 });

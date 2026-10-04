@@ -1210,7 +1210,8 @@ p {
   animation-name: fade-in !important;
 }
 
-@media (min-width: 560px) {
+/* Desktop and tablets: a phone-width column. Phones in landscape keep the full width. */
+@media (min-width: 560px) and (min-height: 561px) {
   #root {
     max-width: 480px;
     margin: 0 auto;
@@ -1666,4 +1667,42 @@ p {
 .level-num {
   text-align: right;
   font-weight: 700;
+}
+
+.setting .btn-row {
+  flex-wrap: nowrap;
+  flex: none;
+}
+.coach {
+  margin-bottom: 8px;
+}
+
+.setting {
+  padding: 10px 0;
+}
+
+/* Landscape on short screens: tighter rows so tray and tiles always fit. */
+@media (orientation: landscape) and (max-height: 560px) {
+  .tiles .tile {
+    min-height: calc(min(var(--tile-min), 22dvh) * var(--session-scale));
+  }
+  .tray {
+    min-height: 44px;
+    margin-bottom: 8px;
+  }
+  .tray-slot {
+    max-width: 40px;
+  }
+  .undo {
+    min-height: 48px;
+  }
+  .coach {
+    padding: 6px 10px;
+    font-size: var(--fs-14);
+    margin-bottom: 4px;
+  }
+  .session {
+    padding-top: calc(env(safe-area-inset-top) + 4px);
+    padding-bottom: calc(env(safe-area-inset-bottom) + 8px);
+  }
 }

@@ -53,6 +53,21 @@ npx capacitor-assets generate --iconBackgroundColor '#16181D' --splashBackground
    ```
 5. In Play Console, create the app, enroll in Play App Signing, and upload the `.aab` to an internal testing track first, then to production.
 
+## v2.1 native setup (one-time, in Xcode and Android Studio)
+
+- **HealthKit (iOS):** App target → Signing & Capabilities → **+ Capability → HealthKit**. Add `NSHealthUpdateUsageDescription` ("CardioBrain can log your sessions to Health as mindful minutes.") to `Info.plist`. This is only needed if you keep the Log to Health setting.
+- **Health Connect (Android):** add `<uses-permission android:name="android.permission.health.WRITE_MINDFULNESS" />` to `AndroidManifest.xml`, and a privacy-policy activity alias as described in the @capgo/capacitor-health README.
+- **Microphone and speech:** the iOS usage strings are already in `Info.plist`. On Android, `RECORD_AUDIO` and the recognition/TTS `<queries>` are already in the manifest.
+- **URL scheme:** `cardiobrain://` is registered on both platforms. Siri Shortcuts can use "Open URL" with `cardiobrain://start?activity=bike`.
+- **Bluetooth heart-rate straps (native):** `NSBluetoothAlwaysUsageDescription` is in `Info.plist`, and `BLUETOOTH_SCAN` (neverForLocation) and `BLUETOOTH_CONNECT` are in the Android manifest.
+- **Landscape:** now allowed on phones, with the treadmill layout.
+
+### Store answers that change with v2.1
+
+- **Privacy label:** still "Data Not Collected". Audio is processed by the OS recogniser and never reaches you, the developer. Health data is written only to the user's own Health store.
+- **App Review notes, add:** "Voice answers and spoken prompts are optional, off by default, and request microphone and speech permission only when turned on. Heart-rate straps connect over standard Bluetooth Heart Rate service and are optional."
+- **App preview video:** `store/preview/app-preview-6.9in.mp4` (886×1920, 29.5 s, H.264 with a silent AAC track), recorded from a real first round.
+
 ## Before each release
 
 - Run `npm run build && npm run e2e`. Optionally run `npm run e2e:long` (about 15 minutes).

@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 
 export type Activity = "walk" | "bike" | "stairs" | "run";
-export type Mode = "mix" | "numbers" | "switch" | "react" | "recall" | "rhyme";
+export type Mode = "mix" | "numbers" | "switch" | "react" | "recall" | "rhyme" | "nback" | "estimate" | "rotate";
 
 /** Start the app in a known state: onboarded (or not), a given preset, an optional short session length. */
 export async function prime(page: Page, opts: { activity?: Activity; mode?: Mode; onboarded?: boolean; seconds?: number; installOffered?: boolean } = {}) {
