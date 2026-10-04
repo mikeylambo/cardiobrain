@@ -287,7 +287,8 @@ export const useCardioStore = create<Store>((set, get) => ({
   resumeSession: () => {
     const active=get().active;
     if (!active) return;
-    const next={...active,status:"countdown" as const,pauseStartedAt:null,trialStartedPerf:performance.now()};
+    const pauseDelta=active.pauseStartedAt ? Date.now()-active.pauseStartedAt : 0;
+    const next={...active,status:"countdown" as const,pauseStartedAt:null,pausedTotalMs:active.pausedTotalMs+pauseDelta,trialStartedPerf:performance.now()};
     void saveActiveSession(next);
     set({active:next,screen:"countdown",resumeAvailable:false});
   },
