@@ -10,6 +10,7 @@ const activities: Array<{ id: Activity; label: string; copy: string }> = [
   { id: "run", label: "Run", copy: "Fast legs, simpler choices." }
 ];
 const durations: DurationChoice[] = [10, 20, 30, "open"];
+const wordsMode = MODE_REGISTRY.rhyme;
 
 export function SetupScreen({ onBack }: { onBack: () => void }) {
   const setup = useCardioStore((s) => s.setup);
