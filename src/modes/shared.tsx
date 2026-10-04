@@ -52,20 +52,23 @@ export function Stage({
   children?: React.ReactNode;
 }) {
   const stageRef = React.useRef<HTMLDivElement>(null);
-  const [height, setHeight] = React.useState(400);
+  const [box, setBox] = React.useState({ width: 400, height: 400 });
   React.useLayoutEffect(() => {
     const el = stageRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setHeight(el.clientHeight));
+    const measure = () => setBox({ width: el.clientWidth, height: el.clientHeight });
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    setHeight(el.clientHeight);
+    measure();
     return () => ro.disconnect();
   }, []);
+  // Tablets and treadmill screens get a bigger stimulus, up to 1.8× the phone size.
+  const scale = Math.min(1.8, Math.max(1, box.width / 420));
   const cls = ["stimulus", "display", entering ? "enter" : "", feedback?.correct ? "breath" : ""].filter(Boolean).join(" ");
   return (
     <div className="stage" ref={stageRef}>
       {cue && <p className="cue">{cue}</p>}
-      {prompt !== undefined && <FitText text={prompt} max={max} className={cls} maxHeight={height * 0.62} />}
+      {prompt !== undefined && <FitText text={prompt} max={Math.round(max * scale)} className={cls} maxHeight={box.height * 0.62} />}
       {children}
     </div>
   );

@@ -4,6 +4,7 @@ import { setSoundEnabled, sfx, unlockAudio } from "./audio/synth";
 import { haptics, setHapticsEnabled } from "./haptics";
 import { hideSplash, setStatusBar } from "./platform/native";
 import { onStorageFailure } from "./storage";
+import { setAnalytics, trackScreen } from "./platform/analytics";
 import { useStore, type Screen } from "./state/store";
 import { ErrorBoundary } from "./ui/ErrorBoundary";
 import { MoodSheet } from "./ui/MoodSheet";
@@ -132,7 +133,14 @@ export function App() {
     setHapticsEnabled(prefs.haptics);
     document.documentElement.classList.toggle("reduce-motion", prefs.reducedMotion);
     document.documentElement.dataset.feel = prefs.feedback;
+    setAnalytics(prefs.analytics);
   }, [prefs]);
+
+  // Usage stats count screens as pages (only when turned on), and the layout knows the screen.
+  React.useEffect(() => {
+    document.documentElement.dataset.screen = shown;
+    if (shown !== "boot") trackScreen(shown);
+  }, [shown]);
 
   // Browser chrome and the native status bar follow the surface on screen.
   React.useEffect(() => {

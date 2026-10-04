@@ -6,7 +6,7 @@ import { formatClock } from "../engine/session";
 import { dailyKey, dailyNumber } from "../engine/daily";
 import { dayStreak, sessionsThisWeek } from "../engine/insights";
 import { Mark } from "./components";
-import { ACTIVITY_LABEL, durationLabel, pct } from "./copy";
+import { ACTIVITY_LABEL, durationLabel, pct, secs } from "./copy";
 import { SetupSheet } from "./SetupScreen";
 import { InstallPrompt, shouldOfferInstall } from "./InstallPrompt";
 import { UpdateToast } from "./UpdateToast";
@@ -16,27 +16,35 @@ function GoalRing({ done, goal }: { done: number; goal: number }) {
   const r = 26;
   const c = 2 * Math.PI * r;
   const frac = Math.min(1, done / goal);
+  const met = done >= goal;
   return (
-    <div className="goal" role="img" aria-label={`${done} of ${goal} sessions this week`}>
+    <div className="goal" role="img" aria-label={met ? `${done} sessions this week, weekly goal of ${goal} met` : `${done} of ${goal} sessions this week`}>
       <svg viewBox="0 0 64 64" aria-hidden="true">
-        <circle cx="32" cy="32" r={r} fill="none" stroke="currentColor" strokeOpacity="0.28" strokeWidth="7" />
-        <circle
-          cx="32"
-          cy="32"
-          r={r}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="7"
-          strokeDasharray={`${c * frac} ${c}`}
-          strokeLinecap={frac > 0 && frac < 1 ? "round" : "butt"}
-          transform="rotate(-90 32 32)"
-        />
+        {met ? (
+          <>
+            <circle cx="32" cy="32" r="29.5" fill="currentColor" />
+            <path className="goal-check" d="M20 33l8 8 16-17" fill="none" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+          </>
+        ) : (
+          <>
+            <circle cx="32" cy="32" r={r} fill="none" stroke="currentColor" strokeOpacity="0.28" strokeWidth="7" />
+            <circle
+              cx="32"
+              cy="32"
+              r={r}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="7"
+              strokeDasharray={`${c * frac} ${c}`}
+              strokeLinecap={frac > 0 ? "round" : "butt"}
+              transform="rotate(-90 32 32)"
+            />
+          </>
+        )}
       </svg>
       <span className="goal-text">
-        <strong className="num">
-          {done} of {goal}
-        </strong>
-        <span>{done >= goal ? "Weekly goal met." : "this week"}</span>
+        <strong className="num">{met ? `${done} this week` : `${done} of ${goal}`}</strong>
+        <span>{met ? "Weekly goal met." : "this week"}</span>
       </span>
     </div>
   );
@@ -172,7 +180,7 @@ export function HomeScreen() {
         </div>
         <p className="home-last">
           {last
-            ? `Last time: ${pct(last.accuracy)}% accuracy, ${(last.avgRt / 1000).toFixed(1)}s average.`
+            ? `Last time: ${pct(last.accuracy)}% accuracy, ${secs(last.avgRt)} average.`
             : "No sessions yet. Start one and your first result becomes your baseline."}
         </p>
         <div className="home-foot">

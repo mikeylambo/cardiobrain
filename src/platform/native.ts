@@ -60,3 +60,21 @@ export async function shareNative(blob: Blob, text: string): Promise<boolean> {
   await Share.share({ title: "CardioBrain", text, files: [file.uri] });
   return true;
 }
+
+/** Share plain text: the native sheet in the app, the Web Share API in browsers that have it. */
+export async function shareText(title: string, text: string): Promise<boolean> {
+  try {
+    if (isNative) {
+      const { Share } = await import("@capacitor/share");
+      await Share.share({ title, text });
+      return true;
+    }
+    if (navigator.share) {
+      await navigator.share({ title, text });
+      return true;
+    }
+  } catch {
+    // Dismissed or unavailable.
+  }
+  return false;
+}

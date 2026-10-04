@@ -1,4 +1,5 @@
 import React from "react";
+import { logError } from "../platform/diagnostics";
 
 interface State {
   error: Error | null;
@@ -13,6 +14,7 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
 
   componentDidCatch(error: Error): void {
     console.warn("CardioBrain recovered from an error:", error.message);
+    logError(error, "render");
   }
 
   render() {

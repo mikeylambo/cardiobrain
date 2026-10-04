@@ -8,7 +8,8 @@ import { DAILY_BLOCK_MS, DAILY_SECONDS, dailyKey, dailyLevel, dailyModeAt, daily
 import { intervalAt } from "../engine/intervals";
 import { ZONE_TIME_FACTOR, zoneFor, type Zone } from "../platform/heartRate";
 import { logSessionToHealth } from "../platform/health";
-import { AUTO_PAUSE_MS, DURATION_SECONDS, GUIDED_SECONDS, RESUME_WINDOW_MS, makeSessionId } from "../engine/session";
+import { AUTO_PAUSE_MS, DURATION_SECONDS, GUIDED_SECONDS, RESUME_WINDOW_MS, easeOffset, makeSessionId } from "../engine/session";
+import { trackEvent } from "../platform/analytics";
 import { GENERATORS } from "../modes/generate";
 import { isRhymeReady, loadRhymeData } from "../modes/generate/rhyme";
 import {
@@ -180,6 +181,10 @@ function modeFor(s: Plan, block: number): ModeId {
   return s.requestedMode;
 }
 
+function kindOf(s: { guided: boolean; daily: string | null; practice?: boolean }): string {
+  return s.guided ? "first round" : s.daily ? "daily" : s.practice ? "try it" : "training";
+}
+
 function blockMs(s: Plan): number {
   return s.guided ? GUIDED_BLOCK_MS : s.daily ? DAILY_BLOCK_MS : MIX_BLOCK_MS;
 }
@@ -201,9 +206,12 @@ function makeChallenge(s: ActiveSession, mode: ModeId, bias: UserPrefs["difficul
 
 function baseChallenge(s: ActiveSession, mode: ModeId, bias: UserPrefs["difficultyBias"]): Challenge {
   // The daily challenge ignores personal levels and timing so everyone plays the same thing.
-  const level = s.daily ? dailyLevel(s.mixBlock) : (s.levels[mode] ?? createDifficultyState()).level;
+  // Timed training sessions ease in and out: a level or two below yours at either end.
+  const ease = s.daily || s.guided || s.practice ? 0 : easeOffset(elapsedMs(s), s.durationSeconds);
+  const own = (s.levels[mode] ?? createDifficultyState()).level;
+  const level = s.daily ? dailyLevel(s.mixBlock) : Math.max(1, own - ease);
   const rng = mulberry32(hashSeed([s.seed, mode, s.trialIndex, level]));
-  return GENERATORS[mode](level, rng, {
+  const challenge = GENERATORS[mode](level, rng, {
     activity: s.daily ? "walk" : s.activity,
     bias: s.daily ? "standard" : bias,
     seed: s.seed,
@@ -211,6 +219,7 @@ function baseChallenge(s: ActiveSession, mode: ModeId, bias: UserPrefs["difficul
     modeTrialIndex: s.modeCounts[mode] ?? 0,
     recent: s.memory[mode] ?? [],
   });
+  return level < own && !s.daily ? { ...challenge, eased: true } : challenge;
 }
 
 function snapshotOf(a: ActiveSession): SessionSnapshot {
@@ -300,6 +309,12 @@ export const useStore = create<State>((set, get) => {
       trials: stopped.trials,
     };
     if (get().prefs.logToHealth) void logSessionToHealth(result);
+    trackEvent("Session finished", {
+      mode: result.requestedMode,
+      activity: result.activity,
+      minutes: Math.round(result.durationSeconds / 60),
+      kind: kindOf(stopped),
+    });
     const history = [result, ...get().history];
     // The daily challenge plays at fixed levels, so it teaches the controller nothing about you.
     const progress = stopped.daily ? get().progress : { ...get().progress, ...stopped.levels };
@@ -397,6 +412,12 @@ export const useStore = create<State>((set, get) => {
       };
       const first = modeFor(base, 0);
       void clearActiveSession();
+      trackEvent("Session started", {
+        mode: base.requestedMode,
+        activity: setup.activity,
+        length: durationSeconds === null ? "open" : `${Math.round(durationSeconds / 60)} min`,
+        kind: kindOf({ guided, daily, practice: practice ? true : undefined }),
+      });
       set({
         recoverable: null,
         error: null,
@@ -509,7 +530,8 @@ export const useStore = create<State>((set, get) => {
         difficultyBias,
       );
       // The guided first round stays gentle; placement continues in your first real session.
-      const level = a.guided ? { ...updated, level: Math.min(updated.level, 4) } : updated;
+      // Eased warm-up and cool-down trials are below your level, so they say nothing about it.
+      const level = challenge.eased ? prior : a.guided ? { ...updated, level: Math.min(updated.level, 4) } : updated;
       const memo = challenge.data.memo;
       const memory = typeof memo === "string" ? { ...a.memory, [challenge.mode]: [...(a.memory[challenge.mode] ?? []), memo].slice(-4) } : a.memory;
       set({

@@ -59,7 +59,7 @@ export function ResultsScreen() {
   React.useEffect(() => {
     if (!result || !prefs.speak) return;
     const delta = d.accuracyPoints === null ? "" : ` ${accuracyDeltaText(d.accuracyPoints)}.`;
-    const t = window.setTimeout(() => say(`${title} ${pct(result.accuracy)} percent, ${(result.avgRt / 1000).toFixed(1)} seconds average.${delta}`), 900);
+    const t = window.setTimeout(() => say(`${title} ${pct(result.accuracy)} percent, ${secs(result.avgRt).replace("s", " seconds")} average.${delta}`), 900);
     return () => window.clearTimeout(t);
     // Read once, when Results opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -175,7 +175,9 @@ export function ResultsScreen() {
           <span className="stat-delta">Best streak {result.bestStreak}</span>
         </div>
         <div className="stat">
-          <span className="stat-label">Average response</span>
+          <span className="stat-label">
+            Response time <span className="stat-sub">correct answers</span>
+          </span>
           <span className="stat-value num">{secs(result.avgRt)}</span>
           {d.rtSeconds !== null && (
             <span className="stat-delta">

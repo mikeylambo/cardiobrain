@@ -1,4 +1,4 @@
-import type { Activity, ModeChoice, SessionResult } from "../engine/types";
+import type { Activity, DurationChoice, ModeChoice, SessionResult } from "../engine/types";
 import { MODE_INFO } from "../modes/registry";
 
 /** The four moving activities. Seated ("still") is the baseline, offered separately. */
@@ -12,13 +12,14 @@ export const ACTIVITY_ON: Record<Activity, string> = { walk: "#FFFFFF", bike: "#
 export const ACTIVITY_ON_DARK: Record<Activity, string> = { walk: "#2FD3BB", bike: "#FFC400", stairs: "#A592FF", run: "#FF6A4D", still: "#F4F4F1" };
 
 export const pct = (x: number) => Math.round(x * 100);
-export const secs = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
+/** Seconds, to the hundredth under one second, where small gains matter. */
+export const secs = (ms: number) => `${(ms / 1000).toFixed(ms > 0 && ms < 995 ? 2 : 1)}s`;
 
-export function durationLabel(d: 10 | 20 | 30 | "open"): string {
+export function durationLabel(d: DurationChoice): string {
   return d === "open" ? "open-ended" : `${d} min`;
 }
 
-export function presetLine(activity: Activity, mode: ModeChoice, duration: 10 | 20 | 30 | "open"): string {
+export function presetLine(activity: Activity, mode: ModeChoice, duration: DurationChoice): string {
   return `${ACTIVITY_LABEL[activity]}, ${MODE_INFO[mode].label}, ${durationLabel(duration)}`;
 }
 

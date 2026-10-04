@@ -3,7 +3,11 @@ import ReactDOM from "react-dom/client";
 import "./styles.css";
 import { App } from "./App";
 import { isNative } from "./platform/native";
+import { installErrorCapture } from "./platform/diagnostics";
+import { useStore } from "./state/store";
 import { announceUpdate } from "./ui/UpdateToast";
+
+installErrorCapture(() => useStore.getState().screen);
 
 // The native app bundles its own files; only the web build needs a service worker.
 if (!isNative && "serviceWorker" in navigator && import.meta.env.PROD) {

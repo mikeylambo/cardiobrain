@@ -2068,3 +2068,143 @@ html[data-feel="strong"] .tile.correct-burst {
   min-height: 48px;
   font-size: var(--fs-17);
 }
+
+/* ---------- v2.4 ---------- */
+.stat-sub {
+  font-size: var(--fs-14);
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+/* Warm-up / cool-down tag beside the clock */
+.phase-tag {
+  font-size: var(--fs-14);
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 2px solid currentColor;
+  white-space: nowrap;
+}
+
+/* Weekly goal met: the ring becomes a solid disc with a check */
+.goal svg .goal-check {
+  stroke: var(--field);
+}
+
+/* About: What's new and Report a problem */
+.about-version {
+  font-size: var(--fs-17);
+  font-weight: 650;
+}
+.whats-new section + section {
+  margin-top: 20px;
+}
+.whats-new ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.whats-new h3 {
+  font-weight: 750;
+}
+.report-note {
+  width: 100%;
+  font: inherit;
+  font-size: var(--fs-17);
+  padding: 12px;
+  border: 2px solid currentColor;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  resize: vertical;
+}
+.report-details {
+  margin-top: 20px;
+}
+.report-details summary {
+  font-weight: 650;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+.report-preview {
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 40vh;
+  overflow: auto;
+  padding: 12px;
+  border-radius: 6px;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  user-select: text;
+}
+
+/*
+ * Tablets and treadmill consoles: the session uses the whole screen with bigger targets
+ * (calm screens keep the phone column). Wide landscape screens put the challenge on the left
+ * and the answers on the right, within reach.
+ */
+@media (min-width: 768px) and (min-height: 561px) {
+  html[data-screen="session"] #root,
+  html[data-screen="session"] .session {
+    max-width: none;
+  }
+  .session {
+    --session-scale: 1.4;
+    padding-left: max(32px, env(safe-area-inset-left));
+    padding-right: max(32px, env(safe-area-inset-right));
+  }
+  .session[data-distance="arm"] {
+    --session-scale: 1.7;
+  }
+  .session .session-bar .clock {
+    font-size: var(--fs-24);
+  }
+}
+@media (min-width: 900px) and (min-height: 561px) and (orientation: landscape) {
+  .session {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto 1fr;
+    column-gap: 48px;
+  }
+  .session-bar,
+  .coach,
+  .voice-note,
+  .progress-cue {
+    grid-column: 1 / -1;
+  }
+  .session-body {
+    grid-column: 1 / -1;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    /* Spacer rows above and below keep the answers (and Recall's tray) centered as a group. */
+    grid-template-rows: 1fr auto auto 1fr;
+    column-gap: 48px;
+    min-height: 0;
+  }
+  .session-body > .stage {
+    grid-column: 1;
+    grid-row: 1 / -1;
+  }
+  .session-body > .tray {
+    grid-column: 2;
+    grid-row: 2;
+    margin-bottom: 16px;
+  }
+  .session-body > .tiles {
+    grid-column: 2;
+    grid-row: 3;
+  }
+  .session-body > .rest-card {
+    grid-column: 1 / -1;
+    grid-row: 1 / -1;
+  }
+  .tiles .tile {
+    min-height: calc(min(var(--tile-min), 22dvh) * var(--session-scale));
+  }
+}

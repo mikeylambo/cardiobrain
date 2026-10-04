@@ -7,7 +7,7 @@ import { haptics } from "../haptics";
 import { MODE_INFO, MODE_VIEWS } from "../modes/registry";
 import type { Feedback } from "../modes/shared";
 import { elapsedMs, useStore } from "../state/store";
-import { formatClock } from "../engine/session";
+import { easePhase, formatClock } from "../engine/session";
 import { intervalAt } from "../engine/intervals";
 import { onAppStateChange } from "../platform/native";
 import { releaseWakeLock, requestWakeLock } from "../wakelock";
@@ -316,6 +316,8 @@ export function SessionScreen() {
   const guidedLine = active.guided && current ? GUIDED_COACH[active.trialIndex] : undefined;
   const coach = guidedLine ?? (coachMode && current?.mode === coachMode && !feedback ? MODE_INFO[current.mode].instruction : null);
 
+  const easeTag = current?.eased ? easePhase(elapsed, active.durationSeconds) : null;
+
   return (
     <div
       className="session field"
@@ -339,6 +341,7 @@ export function SessionScreen() {
         ) : (
           <div className="grow t-17">{modeLabel}</div>
         )}
+        {easeTag && <span className="phase-tag">{easeTag === "warm-up" ? "Warm-up" : "Cool-down"}</span>}
         <span className="clock num" aria-label={`Elapsed ${formatClock(elapsed)}`}>
           {formatClock(elapsed)}
         </span>

@@ -243,3 +243,69 @@ test("the full splash plays once; the next open is quick", async ({ page }) => {
   await page.reload();
   expect(await page.evaluate(() => document.documentElement.dataset.splash)).toBe("quick");
 });
+
+test("Settings shows the version, What's new, and a problem report that includes recorded errors", async ({ page }) => {
+  await prime(page);
+  await page.goto("/");
+  await page.locator("#splash").waitFor({ state: "detached" });
+  await page.evaluate(() =>
+    setTimeout(() => {
+      throw new Error("boom-for-the-report");
+    }),
+  );
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByText(/^CardioBrain \d+\.\d+\.\d+$/)).toBeVisible();
+  await page.getByRole("button", { name: "What's new" }).click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByText(/^Version \d/)
+      .first(),
+  ).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Close" }).click();
+  await page.getByRole("button", { name: "Report a problem" }).click();
+  await page.getByLabel("What happened?").fill("The tiles froze");
+  await page.getByText("What's included").click();
+  const preview = page.locator(".report-preview");
+  await expect(preview).toContainText("What happened: The tiles froze");
+  await expect(preview).toContainText("boom-for-the-report");
+  await expect(preview).toContainText(/Version: \d+\.\d+\.\d+/);
+});
+
+test("a 10-minute session opens with a warm-up at an easier level, and 5 minutes is offered", async ({ page }) => {
+  await prime(page, { mode: "numbers", seconds: 600 });
+  await page.goto("/");
+  await page.locator("#splash").waitFor({ state: "detached" });
+  await page.getByRole("button", { name: "Change" }).click();
+  await expect(page.getByRole("radio", { name: "5 min" })).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Close" }).click();
+  await page.evaluate(() => {
+    const store = (globalThis as unknown as { __cbStore: { setState: (s: object) => void } }).__cbStore;
+    store.setState({ progress: { numbers: { level: 6, trialsSeen: 40, recent: [], lastChangeAt: -99 } } });
+  });
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await page.locator(".countdown").waitFor({ state: "detached" });
+  await expect(page.locator(".phase-tag")).toHaveText("Warm-up");
+  const level = await page.evaluate(
+    () =>
+      (globalThis as unknown as { __cbStore: { getState: () => { active: { current: { level: number; eased?: boolean } } } } }).__cbStore.getState().active
+        .current,
+  );
+  expect(level.eased).toBe(true);
+  expect(level.level).toBe(4);
+});
+
+test.describe("tablet in landscape", () => {
+  test.use({ viewport: { width: 1180, height: 820 }, isMobile: false, hasTouch: true });
+  test("the session spreads out: challenge on the left, answers on the right", async ({ page }) => {
+    await prime(page, { mode: "numbers", seconds: 600 });
+    await page.goto("/");
+    await page.locator("#splash").waitFor({ state: "detached" });
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await page.locator(".countdown").waitFor({ state: "detached" });
+    const stage = (await page.locator(".stage").boundingBox())!;
+    const tiles = (await page.locator(".tiles").boundingBox())!;
+    expect(tiles.x).toBeGreaterThan(stage.x + stage.width - 1);
+    expect(stage.width + tiles.width).toBeGreaterThan(900);
+  });
+});

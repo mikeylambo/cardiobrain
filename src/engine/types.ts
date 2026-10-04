@@ -4,7 +4,7 @@ export type ModeId = "numbers" | "switch" | "react" | "recall" | "rhyme" | "nbac
 export type ModeChoice = ModeId | "mix";
 export type SessionStatus = "countdown" | "running" | "paused" | "finished";
 export type DifficultyBias = "gentle" | "standard" | "hard";
-export type DurationChoice = 10 | 20 | 30 | "open";
+export type DurationChoice = 5 | 10 | 20 | 30 | "open";
 
 export interface AnswerOption {
   id: string;
@@ -32,6 +32,8 @@ export interface Challenge {
   switchTrial?: boolean;
   /** What to read aloud for this challenge, when spoken prompts are on. */
   speech?: string;
+  /** Played below your level during a warm-up or cool-down; it does not move your level. */
+  eased?: boolean;
   /** Voice answers make sense for this challenge (not for React's reflex taps or Recall's sequences). */
   voice?: boolean;
   data: Record<string, unknown>;
@@ -60,8 +62,11 @@ export interface SessionResult {
   requestedMode: ModeChoice;
   durationSeconds: number;
   accuracy: number;
+  /** Mean and median response time over correct answers (see rtBasis). */
   avgRt: number;
   medianRt: number;
+  /** "correct": times cover correct answers only. Older sessions timed every answer and are recomputed on load. */
+  rtBasis?: "correct";
   challenges: number;
   bestStreak: number;
   totalScore: number;

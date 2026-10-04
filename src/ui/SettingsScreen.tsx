@@ -11,6 +11,8 @@ import { connectHealth, isHealthSupported } from "../platform/health";
 let strap: HeartRateConnection | null = null;
 import { useStore } from "../state/store";
 import { exportData } from "../storage";
+import { APP_VERSION } from "../changelog";
+import { ReportSheet, WhatsNewSheet } from "./AboutSheets";
 import { BackIcon, Segmented, Sheet, Toggle } from "./components";
 
 const BIAS_NOTE: Record<DifficultyBias, string> = {
@@ -40,6 +42,7 @@ export function SettingsScreen() {
   const importData = useStore((s) => s.importData);
   const markBackedUp = useStore((s) => s.markBackedUp);
   const [confirm, setConfirm] = React.useState(false);
+  const [about, setAbout] = React.useState<"new" | "report" | null>(null);
   const [tested, setTested] = React.useState(false);
   const [importNote, setImportNote] = React.useState<string | null>(null);
   const fileInput = React.useRef<HTMLInputElement>(null);
@@ -76,7 +79,7 @@ export function SettingsScreen() {
 
   const backup = async () => {
     const s = useStore.getState();
-    const payload = { app: "CardioBrain", version: "2.1.0", history: s.history, progress: s.progress, prefs: s.prefs, setup: s.setup };
+    const payload = { app: "CardioBrain", version: APP_VERSION, history: s.history, progress: s.progress, prefs: s.prefs, setup: s.setup };
     if (isNative) {
       // In the app: hand the file to the share sheet, so it can go to Files, iCloud Drive or Google Drive.
       const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), ...payload }, null, 2)], { type: "application/json" });
@@ -294,12 +297,33 @@ export function SettingsScreen() {
         <button className="btn-text" style={{ alignSelf: "flex-start" }} onClick={() => setConfirm(true)}>
           Delete data
         </button>
+      </div>
+      {!isNative && (
+        <Row
+          title="Share anonymous usage"
+          note="Which screens and modes get used, to guide what improves next. No cookies, no personal data, no results. Off unless you turn it on."
+        >
+          <Toggle label="Share anonymous usage" checked={prefs.analytics} onChange={(analytics) => updatePrefs({ analytics })} />
+        </Row>
+      )}
+
+      <h2 className="settings-group">About</h2>
+      <p className="about-version">CardioBrain {APP_VERSION}</p>
+      <div className="danger-zone">
+        <button className="btn-text" style={{ alignSelf: "flex-start" }} onClick={() => setAbout("new")}>
+          What's new
+        </button>
+        <button className="btn-text" style={{ alignSelf: "flex-start" }} onClick={() => setAbout("report")}>
+          Report a problem
+        </button>
         <p className="t-14" style={{ color: "var(--muted)", marginTop: 8 }}>
           <a href="/privacy" style={{ color: "inherit" }}>
             Privacy
           </a>
         </p>
       </div>
+      {about === "new" && <WhatsNewSheet onClose={() => setAbout(null)} />}
+      {about === "report" && <ReportSheet onClose={() => setAbout(null)} />}
 
       {confirm && (
         <Sheet title="Delete everything?" onClose={() => setConfirm(false)}>

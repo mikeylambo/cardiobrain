@@ -184,3 +184,15 @@ Calls made during the builds, newest first. Each one can be revisited; the reaso
 - **Keyboard.** Keys 1–9 or the arrow keys answer; Space, P or Esc pause; Enter starts; Backspace undoes in Recall. This is for tablets on a treadmill with a keyboard, and it helps accessibility.
 - **The resume countdown is skippable.** You already know the game after a pause; the first countdown stays.
 - **"Try it" on Insights.** A one-minute practice per mode, kept in History but left out of stats, streak, weekly goal and comparisons.
+
+## v2.4
+
+- **Version and What's new in Settings → About.** This confirms an update actually applied, which matters most while testing.
+- **Report a problem.** It builds a plain-text report (version, platform, device, screen, settings, last session, and the on-device error log) that you read before sharing or copying it. There's no server, so nothing is sent automatically.
+- **Error log.** It records uncaught errors, rejected promises and render crashes caught by the ErrorBoundary, keeping the last 20 with trimmed stacks. Browser noise (ResizeObserver loops, cross-origin "Script error.") is filtered out. Delete data clears it.
+- **5-minute sessions.**
+- **Warm-up and cool-down.** Timed sessions of 5 minutes or more play 2 levels below yours for the first 20 seconds, 1 below until 45 seconds, and 1 below for the last 45 seconds. Open sessions only warm up. Eased trials don't move your level: they're below it, so they say nothing about it. Daily, guided and Try it sessions are exempt. A small "Warm-up" or "Cool-down" tag shows next to the clock.
+- **Response time counts correct answers only.** A fast wrong guess used to lower your average, which rewarded guessing. Older sessions are recomputed from their stored trials on load (`rtBasis`), so comparisons stay fair. Times under one second show hundredths.
+- **The weekly goal ring.** Once you meet the goal, it becomes a solid disc with a check, labeled "4 this week". "4 of 3" read like an error.
+- **Tablets and treadmill consoles.** From 768px wide (and 561px tall), the session leaves the phone column, scales targets by 1.4× (1.7× at arm's length) and grows the stimulus with the stage, up to 1.8×. Wide landscape screens put the challenge on the left and the answers on the right, centered as a group. Calm screens keep the phone column, where reading is easier.
+- **Opt-in usage stats (web only).** Vercel Web Analytics, which uses no cookies. It's off by default. When on, screens are counted as virtual pages (`/home`, `/session`…), sessions send "Session started" and "Session finished" with mode, activity, length and kind, and query strings are stripped. Turning it off drops events in `beforeSend` at once. Native apps never load it. Web Analytics must be enabled once in the Vercel project. Custom events need a paid Vercel plan; page counts work on Hobby.

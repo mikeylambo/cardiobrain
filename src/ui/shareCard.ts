@@ -51,7 +51,7 @@ export async function renderShareCard(result: SessionResult, title: string, d: D
   const stats: Array<[string, string, string]> = [
     ["Duration", minutesLabel(result.durationSeconds), ""],
     ["Challenges", String(result.challenges), `Best streak ${result.bestStreak}`],
-    ["Average response", secs(result.avgRt), d.rtSeconds === null ? "" : rtDeltaText(d.rtSeconds)],
+    ["Response time", secs(result.avgRt), d.rtSeconds === null ? "" : rtDeltaText(d.rtSeconds)],
   ];
   let y = Y + 960;
   font(600, 34);

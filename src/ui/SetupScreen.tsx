@@ -8,6 +8,7 @@ import { ALL_ACTIVITIES, ACTIVITY_LABEL } from "./copy";
 import { unlockAudio } from "../audio/synth";
 
 const DURATIONS: Array<{ value: DurationChoice; label: string }> = [
+  { value: 5, label: "5 min" },
   { value: 10, label: "10 min" },
   { value: 20, label: "20 min" },
   { value: 30, label: "30 min" },
@@ -95,7 +96,7 @@ export function SetupSheet({ onClose }: { onClose: () => void }) {
       )}
 
       <p className="group-label">Duration</p>
-      <Segmented label="Duration" cols={4} value={setup.duration} onChange={(duration) => updateSetup({ duration })} options={DURATIONS} />
+      <Segmented label="Duration" cols={5} value={setup.duration} onChange={(duration) => updateSetup({ duration })} options={DURATIONS} />
 
       <p className="group-label">Intervals</p>
       <Segmented label="Intervals" cols={4} value={setup.intervals} onChange={(intervals) => updateSetup({ intervals })} options={INTERVAL_OPTIONS} />

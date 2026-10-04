@@ -119,7 +119,7 @@ function Detail({ r, onClose }: { r: SessionResult; onClose: () => void }) {
     ["Accuracy", `${pct(r.accuracy)}%`],
     ["Duration", minutesLabel(r.durationSeconds)],
     ["Challenges", String(r.challenges)],
-    ["Average response", secs(r.avgRt)],
+    ["Response time (correct)", secs(r.avgRt)],
     ["Best streak", String(r.bestStreak)],
   ];
   return (
@@ -247,7 +247,7 @@ export function HistoryScreen() {
           ) : (
             <>
               <Trend title="Accuracy" values={series.map((h) => ({ v: h.accuracy, t: h.startedAt }))} format={(v) => `${pct(v)}%`} />
-              <Trend title="Average response" values={series.map((h) => ({ v: h.avgRt, t: h.startedAt }))} format={secs} invert />
+              <Trend title="Response time" values={series.map((h) => ({ v: h.avgRt, t: h.startedAt }))} format={secs} invert />
             </>
           )}
           <ConsistencyStrip history={history} />

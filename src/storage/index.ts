@@ -1,6 +1,7 @@
 import { createStore, del, get, set } from "idb-keyval";
 import type { Activity, DifficultyBias, DurationChoice, ModeChoice, ModeId, SessionResult } from "../engine/types";
 import type { DifficultyState } from "../engine/difficulty";
+import { responseStats } from "../engine/scoring";
 
 export type Distance = "hand" | "arm";
 export type IntervalChoice = "off" | "30/30" | "60/60" | "240/60";
@@ -30,6 +31,8 @@ export interface UserPrefs {
   logToHealth: boolean;
   /** How much every press answers back: tick, haptic and press motion. */
   feedback: "off" | "standard" | "strong";
+  /** Web only: anonymous usage stats (screens and session starts), off unless turned on. */
+  analytics: boolean;
 }
 
 export interface SessionSetup {
@@ -75,6 +78,7 @@ export const DEFAULT_PREFS: UserPrefs = {
   maxHr: 185,
   logToHealth: false,
   feedback: "standard",
+  analytics: false,
 };
 export const DEFAULT_SETUP: SessionSetup = { activity: "walk", mode: "mix", duration: 20, mixModes: ALL_MODES, intervals: "off", playDuring: "work" };
 export const DEFAULT_FLAGS: Flags = {
@@ -135,7 +139,12 @@ async function remove(key: string): Promise<void> {
   }
 }
 
-export const loadHistory = async () => (await read<SessionResult[]>("history")) ?? [];
+/** Bring older sessions up to date: response times now count correct answers only. */
+export function migrateHistory(history: SessionResult[]): SessionResult[] {
+  return history.map((r) => (r.rtBasis || !r.trials?.length ? r : { ...r, ...responseStats(r.trials), rtBasis: "correct" as const }));
+}
+
+export const loadHistory = async () => migrateHistory((await read<SessionResult[]>("history")) ?? []);
 export const saveHistory = (history: SessionResult[]) => write("history", history.slice(0, 300));
 export const loadActiveSession = <T>() => read<T>("active-session");
 export const saveActiveSession = (snapshot: unknown) => write("active-session", snapshot);
@@ -169,7 +178,7 @@ export const saveProgress = (progress: PersistedProgress) => writeLocal("cb-prog
 
 export function clearLocal(): void {
   try {
-    for (const key of ["cb-prefs", "cb-setup", "cb-flags", "cb-progress"]) localStorage.removeItem(key);
+    for (const key of ["cb-prefs", "cb-setup", "cb-flags", "cb-progress", "cb-errors"]) localStorage.removeItem(key);
   } catch {
     // Nothing stored.
   }
@@ -201,7 +210,7 @@ export function parseImport(text: string): ExportPayload | string {
 /** Merge imported sessions into existing history: no duplicates, newest first. */
 export function mergeHistory(current: SessionResult[], incoming: SessionResult[]): { history: SessionResult[]; added: number } {
   const seen = new Set(current.map((h) => h.id));
-  const fresh = incoming.filter((h) => !seen.has(h.id));
+  const fresh = migrateHistory(incoming.filter((h) => !seen.has(h.id)));
   const history = [...current, ...fresh].sort((a, b) => b.startedAt - a.startedAt);
   return { history, added: fresh.length };
 }

@@ -107,7 +107,7 @@ export function modeBreakdown(r: SessionResult): Array<{ mode: SessionResult["tr
   return [...by.entries()]
     .filter(([, ts]) => ts.length >= 3)
     .map(([mode, ts]) => {
-      const rts = ts.filter((t) => t.responseMs > 0).map((t) => t.responseMs);
+      const rts = ts.filter((t) => t.responseMs > 0 && t.correct).map((t) => t.responseMs);
       return {
         mode: mode as SessionResult["trials"][number]["mode"],
         n: ts.length,

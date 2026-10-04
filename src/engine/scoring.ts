@@ -33,13 +33,26 @@ export function switchCost(trials: TrialResult[]): number | null {
   return mean(sw) - mean(rep);
 }
 
+/**
+ * Response time over correct answers only, so a fast guess never looks like progress. Falls back
+ * to every answer when none were right.
+ */
+export function responseStats(trials: TrialResult[]): { avgRt: number; medianRt: number } {
+  const timed = trials.filter((trial) => Number.isFinite(trial.responseMs) && trial.responseMs > 0);
+  const correct = timed.filter((trial) => trial.correct);
+  const times = (correct.length ? correct : timed).map((trial) => trial.responseMs);
+  const sorted = [...times].sort((a, b) => a - b);
+  return {
+    avgRt: times.length ? times.reduce((sum, value) => sum + value, 0) / times.length : 0,
+    medianRt: sorted.length ? sorted[Math.floor(sorted.length / 2)]! : 0,
+  };
+}
+
 export function sessionMetrics(trials: TrialResult[]) {
   const correctTrials = trials.filter((trial) => trial.correct);
-  const responseTimes = trials.filter((trial) => Number.isFinite(trial.responseMs) && trial.responseMs > 0).map((trial) => trial.responseMs);
-  const sorted = [...responseTimes].sort((a, b) => a - b);
-  const medianRt = sorted.length ? sorted[Math.floor(sorted.length / 2)]! : 0;
-  const avgRt = responseTimes.length ? responseTimes.reduce((sum, value) => sum + value, 0) / responseTimes.length : 0;
+  const { avgRt, medianRt } = responseStats(trials);
   return {
+    rtBasis: "correct" as const,
     accuracy: trials.length ? correctTrials.length / trials.length : 0,
     avgRt,
     medianRt,
