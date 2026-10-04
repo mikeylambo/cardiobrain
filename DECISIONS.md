@@ -41,3 +41,8 @@ This file records deliberate product and implementation choices made during the 
 - A Recall generation bug was found where low-level rounds could contain sequence symbols missing from the answer bank. The generator now guarantees every sequence symbol is tappable, and a 20-level × 80-seed solvability test guards it.
 - A recovered paused session bug was found: resuming from a persisted paused state did not add the outstanding pause interval to pausedTotalMs. That is now fixed and covered by the mobile reload/resume acceptance flow.
 - Home Start session now enters Setup instead of silently starting with defaults.
+
+- Recall now uses six stable shape IDs rendered by shared CSS geometry in both the memorize phase and answer pads, eliminating Unicode glyph mismatch. Its presentation timers are fully cancellable on challenge changes/unmount.
+- React challenge presentation is owned by the session shell rather than firing twice from the mode view.
+- Settings now exposes a true Reset app action that clears history, active-session state, learned levels, preferences, onboarding, and setup defaults before returning to first launch.
+- Review coverage now explicitly asserts each displayed Recall shape exists as a selectable answer and that Reset app returns the product to onboarding. A malformed multi-statement Playwright review test was also corrected.
