@@ -28,3 +28,7 @@ Reject before done if:
 - the screen feels like a generic dashboard
 
 Playwright review output is evidence. A screenshot that looks wrong is a failing review even when functional assertions are green.
+
+- verify every displayed Recall shape has an identical selectable answer target
+- verify Reset app clears history/preferences and returns to first launch
+- verify React and Recall challenges advance without freezing after repeated challenge changes
