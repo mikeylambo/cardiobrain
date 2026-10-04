@@ -45,7 +45,7 @@ export function HomeScreen({ navigate }: { navigate:(screen:"home"|"setup"|"hist
   };
 
   return <main className="app-frame screen-stack">
-    <div className="topbar"><div className="wordmark">CARDIO<span>BRAIN</span></div><button className="icon-button" onClick={()=>navigate("settings")} aria-label="Settings">•••</button></div>
+    <div className="topbar"><div className="wordmark">CARDIO<span>BRAIN</span></div><button className="action-secondary" style={{width:"auto",minHeight:44,padding:"0 12px",fontSize:10,letterSpacing:".12em"}} onClick={()=>navigate("settings")} aria-label="Open settings">SETTINGS</button></div>
     <section className="hero">
       <div className="hero-mark display-face" aria-hidden="true">CB</div>
       <div><div className="eyebrow">TRAIN IN MOTION</div><h1 className="hero-title display-face">Keep moving.<br/><em>Stay sharp.</em></h1><p className="hero-tag">Short cognitive challenges built for the space between breaths.</p></div>
