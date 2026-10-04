@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mulberry32 } from "../rng";
-import { recallMode } from "../../modes/recall";
+import { recallMode, RECALL_SHAPE_IDS } from "../../modes/recall";
 
 describe("Recall solvability", () => {
   it("includes every required sequence symbol in the answer bank", () => {
@@ -19,6 +19,7 @@ describe("Recall solvability", () => {
         }
 
         expect(options.size).toBe(challenge.options.length);
+        expect(challenge.options.map((option) => option.id).sort()).toEqual([...RECALL_SHAPE_IDS].sort());
       }
     }
   });
