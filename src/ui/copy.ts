@@ -106,6 +106,23 @@ export function switchCostText(ms: number | null): string | null {
   return `${(ms / 1000).toFixed(2)}s slower when the rule changed.`;
 }
 
+/** Seconds as words for speech: "0.84 seconds". */
+const spokenSecs = (ms: number) => `${secs(ms).replace("s", "")} seconds`;
+
+/**
+ * The summary read aloud when Results opens, for sessions played by ear: the headline,
+ * the numbers that matter, then anything new. Short sentences, nothing that needs the screen.
+ */
+export function spokenSummary(r: SessionResult, title: string, extras: { accuracyPoints: number | null; bests: string[]; rival?: string }): string {
+  const parts = [title, `${pct(r.accuracy)} percent accuracy over ${r.challenges} ${r.challenges === 1 ? "challenge" : "challenges"}.`];
+  if (r.avgRt) parts.push(`Correct answers in ${spokenSecs(r.avgRt)} on average.`);
+  if (extras.accuracyPoints !== null) parts.push(`${accuracyDeltaText(extras.accuracyPoints)}.`);
+  if (r.bestStreak >= 5) parts.push(`Best streak, ${r.bestStreak}.`);
+  if (extras.bests.length) parts.push(`New personal best: ${extras.bests.join(" and ")}.`);
+  if (extras.rival) parts.push(extras.rival);
+  return parts.join(" ");
+}
+
 /** How a daily went against the friend who challenged you. */
 export function rivalText(accuracy: number, rival: number): string {
   const diff = pct(accuracy) - rival;

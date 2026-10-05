@@ -232,7 +232,7 @@ test("keyboard: number keys answer, Space pauses and resumes, the resume countdo
   expect(trials).toBe(1);
   await page.waitForTimeout(800);
   await page.keyboard.press(" ");
-  await expect(page.getByText("Paused. Your session is saved.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Paused." })).toBeVisible();
   await page.keyboard.press(" ");
   const t0 = Date.now();
   await page.getByRole("button", { name: "Tap to go now" }).click();

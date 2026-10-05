@@ -55,3 +55,17 @@ describe("seated vs. moving rows", () => {
     expect(rows[0]!.movingN).toBe(2);
   });
 });
+
+import { spokenSummary } from "../../ui/copy";
+describe("spoken summary", () => {
+  it("reads the numbers that matter, then what's new", () => {
+    const r = { accuracy: 0.86, challenges: 142, avgRt: 840, bestStreak: 17 } as SessionResult;
+    expect(spokenSummary(r, "Sharper than your last bike session.", { accuracyPoints: 4, bests: ["accuracy", "streak"] })).toBe(
+      "Sharper than your last bike session. 86 percent accuracy over 142 challenges. Correct answers in 0.84 seconds on average. 4 points above last time. Best streak, 17. New personal best: accuracy and streak.",
+    );
+  });
+  it("stays short for a first session", () => {
+    const r = { accuracy: 0.5, challenges: 1, avgRt: 0, bestStreak: 1 } as SessionResult;
+    expect(spokenSummary(r, "Baseline set.", { accuracyPoints: null, bests: [] })).toBe("Baseline set. 50 percent accuracy over 1 challenge.");
+  });
+});

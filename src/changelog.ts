@@ -3,6 +3,16 @@ export const APP_VERSION = __APP_VERSION__;
 /** Newest first. Plain sentences, the way Settings shows them. */
 export const CHANGELOG: Array<{ version: string; items: string[] }> = [
   {
+    version: "2.7",
+    items: [
+      "The pause screen shows accuracy, challenges and best streak so far, with Sound and Read aloud switches.",
+      "End and see results: one tap from pause.",
+      "Pausing is announced with your accuracy when Read aloud is on.",
+      "A fuller spoken summary when a session ends: accuracy, speed, streak and anything new.",
+      "A tester guide at cardiobrain.vercel.app/test.",
+    ],
+  },
+  {
     version: "2.6",
     items: [
       "A new welcome: pick your activity, say where your phone is and whether you'll listen, then a 30-second round.",

@@ -323,6 +323,10 @@ export function SettingsScreen() {
         <p className="t-14" style={{ color: "var(--muted)", marginTop: 8 }}>
           <a href="/privacy" style={{ color: "inherit" }}>
             Privacy
+          </a>{" "}
+          ·{" "}
+          <a href="/test" style={{ color: "inherit" }}>
+            Tester guide
           </a>
         </p>
       </div>

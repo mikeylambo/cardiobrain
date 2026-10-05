@@ -48,11 +48,11 @@ test("background for over 3 seconds pauses the session; a glance away does not",
   await setHidden(page, true);
   await page.waitForTimeout(1000);
   await setHidden(page, false);
-  await expect(page.getByText("Paused. Your session is saved.")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Paused." })).toHaveCount(0);
   await setHidden(page, true);
   await page.waitForTimeout(3400);
   await setHidden(page, false);
-  await expect(page.getByText("Paused. Your session is saved.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Paused." })).toBeVisible();
   await page.getByRole("button", { name: "Resume" }).click();
   await page.locator(".countdown").waitFor({ state: "detached" });
   await play(page, 1500);
@@ -67,15 +67,15 @@ test("reload mid-session offers Resume your session, and it continues", async ({
   await play(page, 9000); // past the 5-second save
   await page.reload();
   await page.getByRole("button", { name: "Resume your session" }).click();
-  await expect(page.getByText("Paused. Your session is saved.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Paused." })).toBeVisible();
   await page.getByRole("button", { name: "Resume" }).click();
   await page.locator(".countdown").waitFor({ state: "detached" });
   // Saved every 5 seconds: the clock comes back where the last save left it, not at zero.
   await expect(page.locator(".clock")).not.toHaveText("0:00");
   await play(page, 2000);
   await page.getByRole("button", { name: /^Pause/ }).click();
-  await page.getByRole("button", { name: "End session" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "End session" }).click();
+  await expect(page.locator(".pause-stats")).toContainText("Accuracy");
+  await page.getByRole("button", { name: "End and see results" }).click();
   await page.locator(".results").waitFor();
   expect(errors).toEqual([]);
 });

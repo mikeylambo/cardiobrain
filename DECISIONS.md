@@ -214,3 +214,10 @@ Calls made during the builds, newest first. Each one can be revisited; the reaso
 - **Look around first.** Some people want to explore before playing. It marks the intro done and goes to Home.
 - **First-round Results is a "what's next" guide.** After 30 seconds the stats mean little. Instead it explains that levels adapt, then covers Start (with your preset), the Daily, and the seated baseline. The primary action is "Start a full session"; "Go to Home" is secondary.
 - **Replay the intro** (Settings → About) re-runs the welcome without touching history or levels: useful for testers and demos.
+
+## v2.7: test-ready
+
+- **Pause panel.** Accuracy, challenges and best streak so far, time in and time to go, plus Sound and Read aloud switches: the two things you most often want to change mid-workout. "End and see results" is one tap when there's something to save. With nothing answered, End still asks, because nothing would be kept. In phone landscape it splits into stats on the left and actions on the right, and the switches are hidden there so it fits in 390px of height. On the dark panel, "on" is a light track with a dark knob.
+- **Listening sessions speak at the edges.** Pausing says "Paused. 82 percent so far, 40 challenges." Results reads a fuller summary: headline, accuracy over N challenges, correct-answer speed, the change from last time, best streak (5 or more), personal bests, and the friend's challenge. Sentences are short and need no screen. The summary is a pure function (`spokenSummary`) with unit tests.
+- **Tester guide at `/test`.** Install steps for iPhone and Android, five scripted tasks (first run, a moving session, listening, Daily + challenge link, seated baseline) and how to send a report from Settings. It's linked from Settings → About and kept out of search (`noindex`).
+- **Layout floor test.** It now retries for up to 2 seconds. It once failed under full-suite load and never reproduced in 64 isolated runs, consistent with a rhyme word caught mid-FitText. A persistent layout fault still fails.

@@ -10,13 +10,13 @@ export default defineConfig({
     VitePWA({
       registerType: "prompt",
       injectRegister: false,
-      includeAssets: ["favicon.svg", "apple-touch-icon.png", "fonts/*.woff2", "privacy.html"],
+      includeAssets: ["favicon.svg", "apple-touch-icon.png", "fonts/*.woff2", "privacy.html", "test.html"],
       workbox: {
         // Everything, including the rhyme word list, is precached: the app is fully offline after one load.
         globPatterns: ["**/*.{js,css,html,svg,png,woff2,txt,webmanifest}"],
         globIgnores: ["splash/**", "og-image.png", "twitter-card.png"],
         maximumFileSizeToCacheInBytes: 3_000_000,
-        navigateFallbackDenylist: [/^\/privacy/],
+        navigateFallbackDenylist: [/^\/privacy/, /^\/test/],
       },
       manifest: {
         id: "/",

@@ -1,6 +1,6 @@
 import React from "react";
 import { sfx } from "../audio/synth";
-import { hush, readOptions, say } from "../audio/speech";
+import { hush, isSpeechSupported, readOptions, say } from "../audio/speech";
 import { listen } from "../audio/listen";
 import { matchSpoken } from "../audio/voiceMatch";
 import { haptics } from "../haptics";
@@ -11,7 +11,7 @@ import { EASE_MS, easePhase, formatClock } from "../engine/session";
 import { intervalAt } from "../engine/intervals";
 import { onAppStateChange } from "../platform/native";
 import { releaseWakeLock, requestWakeLock } from "../wakelock";
-import { PauseIcon, Sheet, useLongPress } from "./components";
+import { PauseIcon, Sheet, Toggle, useLongPress } from "./components";
 import { Countdown } from "./CountdownScreen";
 
 const FEEDBACK_MS = { correct: 280, wrong: 700 };
@@ -270,6 +270,18 @@ export function SessionScreen() {
     spokenFor.current = null;
   }, [phase]);
 
+  // Listening? Pausing says where you stand, so you needn't look down.
+  React.useEffect(() => {
+    if (phase !== "paused" || !prefs.speak) return;
+    const a = useStore.getState().active;
+    if (!a) return;
+    const n = a.trials.length;
+    const acc = n ? Math.round((a.trials.filter((t) => t.correct).length / n) * 100) : null;
+    say(acc === null ? "Paused." : `Paused. ${acc} percent so far, ${n} ${n === 1 ? "challenge" : "challenges"}.`);
+    // Spoken once per pause.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
   React.useEffect(() => {
     if (phase !== "paused" || flags.pauseHintShown) return;
     setShowPauseHint(true);
@@ -436,25 +448,15 @@ export function SessionScreen() {
       )}
 
       {phase === "paused" && !confirmEnd && (
-        <div className="overlay paused ink" role="dialog" aria-modal="true" aria-labelledby="paused-title">
-          <div className="stack gap-12" style={{ marginTop: 40 }}>
-            <h1 id="paused-title" className="display">
-              Paused. Your session is saved.
-            </h1>
-            <p className="t-17">
-              {formatClock(elapsed)} in, {active.trials.length} {active.trials.length === 1 ? "challenge" : "challenges"} done.
-            </p>
-            {showPauseHint && <p className="t-17 hint">Tip: press and hold the pause button to end a session in one step.</p>}
-          </div>
-          <div className="stack gap-12">
-            <button className="btn-primary" onClick={resume} autoFocus>
-              Resume
-            </button>
-            <button className="btn-text" style={{ alignSelf: "center", color: "var(--chalk)" }} onClick={() => setConfirmEnd(true)}>
-              End session
-            </button>
-          </div>
-        </div>
+        <PausePanel
+          elapsed={elapsed}
+          onResume={resume}
+          onEnd={() => {
+            if (active.trials.length) endSession();
+            else setConfirmEnd(true);
+          }}
+          hint={showPauseHint}
+        />
       )}
 
       {confirmEnd && (
@@ -489,6 +491,63 @@ export function SessionScreen() {
       <p className="sr-only" aria-live="polite">
         {announce}
       </p>
+    </div>
+  );
+}
+
+/** Paused: where you stand, two quick switches, and one tap to resume or finish. */
+function PausePanel({ elapsed, onResume, onEnd, hint }: { elapsed: number; onResume: () => void; onEnd: () => void; hint: boolean }) {
+  const active = useStore((s) => s.active)!;
+  const prefs = useStore((s) => s.prefs);
+  const updatePrefs = useStore((s) => s.updatePrefs);
+  const n = active.trials.length;
+  const acc = n ? Math.round((active.trials.filter((t) => t.correct).length / n) * 100) : null;
+  const left = active.durationSeconds ? Math.max(0, active.durationSeconds * 1000 - elapsed) : null;
+  return (
+    <div className="overlay paused ink" role="dialog" aria-modal="true" aria-labelledby="paused-title">
+      <div className="stack gap-12" style={{ marginTop: 32 }}>
+        <h1 id="paused-title" className="display">
+          Paused.
+        </h1>
+        <p className="t-17">
+          Your session is saved. {formatClock(elapsed)} in{left !== null ? `, ${formatClock(left)} to go` : ""}.
+        </p>
+        <dl className="pause-stats">
+          <div>
+            <dt>Accuracy</dt>
+            <dd className="num">{acc === null ? "–" : `${acc}%`}</dd>
+          </div>
+          <div>
+            <dt>Challenges</dt>
+            <dd className="num">{n}</dd>
+          </div>
+          <div>
+            <dt>Best streak</dt>
+            <dd className="num">{active.bestStreak}</dd>
+          </div>
+        </dl>
+        <div className="pause-switches">
+          <label>
+            <span>Sound</span>
+            <Toggle label="Sound" checked={prefs.sound} onChange={(sound) => updatePrefs({ sound })} />
+          </label>
+          {isSpeechSupported() && (
+            <label>
+              <span>Read aloud</span>
+              <Toggle label="Read aloud" checked={prefs.speak} onChange={(speak) => updatePrefs({ speak })} />
+            </label>
+          )}
+        </div>
+        {hint && <p className="t-14 hint">Tip: press and hold the pause button to end a session in one step.</p>}
+      </div>
+      <div className="stack gap-8">
+        <button className="btn-primary" onClick={onResume} autoFocus>
+          Resume
+        </button>
+        <button className="btn-text" style={{ alignSelf: "center", color: "var(--chalk)" }} onClick={onEnd}>
+          {n ? "End and see results" : "End session"}
+        </button>
+      </div>
     </div>
   );
 }

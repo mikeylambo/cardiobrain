@@ -118,7 +118,7 @@ export async function play(page: Page, ms: number) {
 
 export async function pauseAndResume(page: Page) {
   await page.getByRole("button", { name: /^Pause/ }).click();
-  await page.getByText("Paused. Your session is saved.").waitFor();
+  await page.getByRole("heading", { name: "Paused." }).waitFor();
   await page.getByRole("button", { name: "Resume" }).click();
   await page.locator(".countdown").waitFor({ state: "detached", timeout: 10000 });
 }

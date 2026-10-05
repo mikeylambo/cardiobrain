@@ -13,6 +13,7 @@ import {
   accuracyDeltaText,
   presetLine,
   rivalText,
+  spokenSummary,
   deltas,
   headline,
   minutesLabel,
@@ -72,8 +73,13 @@ export function ResultsScreen() {
   // Eyes-free runs end with the result read aloud.
   React.useEffect(() => {
     if (!result || !prefs.speak) return;
-    const delta = d.accuracyPoints === null ? "" : ` ${accuracyDeltaText(d.accuracyPoints)}.`;
-    const t = window.setTimeout(() => say(`${title} ${pct(result.accuracy)} percent, ${secs(result.avgRt).replace("s", " seconds")} average.${delta}`), 900);
+    const best = bests ? [bests.accuracy && "accuracy", bests.speed && "speed", bests.streak && "streak"].filter((x): x is string => Boolean(x)) : [];
+    const text = spokenSummary(result, title, {
+      accuracyPoints: d.accuracyPoints,
+      bests: best,
+      rival: result.rival !== undefined ? rivalText(result.accuracy, result.rival) : undefined,
+    });
+    const t = window.setTimeout(() => say(text), 900);
     return () => window.clearTimeout(t);
     // Read once, when Results opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps

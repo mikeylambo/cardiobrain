@@ -6,8 +6,13 @@ import { play, prime, seedHistory, startFromHome, type Mode } from "./helpers";
 
 test.use({ viewport: { width: 360, height: 800 } });
 
+/** Layout floor. Retried briefly, so a word mid-fit (FitText settles over a frame or two) isn't flagged; anything lasting is. */
 async function checkFloor(page: Page, where: string) {
-  const report = await page.evaluate(() => {
+  await expect.poll(() => floorReport(page), { message: where, timeout: 2000 }).toEqual([]);
+}
+
+async function floorReport(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
     const out: string[] = [];
     if (document.documentElement.scrollWidth > window.innerWidth + 1) out.push(`horizontal scroll: ${document.documentElement.scrollWidth}px`);
     for (const el of Array.from(document.querySelectorAll<HTMLElement>("button, a[href], [role=radio], [role=switch]"))) {
@@ -27,7 +32,6 @@ async function checkFloor(page: Page, where: string) {
     }
     return out;
   });
-  expect(report, where).toEqual([]);
 }
 
 test("home, setup sheet, history, settings", async ({ page }, info) => {
